@@ -1,8 +1,8 @@
 package io.github.openrgbremote.sdk.discovery
 
-import io.github.openrgbremote.sdk.client.FakeOpenRgbServer
-import io.github.openrgbremote.sdk.client.GarbageServer
-import io.github.openrgbremote.sdk.client.closedPort
+import io.github.openrgbremote.sdk.testing.FakeOpenRgbServer
+import io.github.openrgbremote.sdk.testing.GarbageServer
+import io.github.openrgbremote.sdk.testing.closedPort
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout

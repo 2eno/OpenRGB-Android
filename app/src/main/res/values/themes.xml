@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme only; all UI is drawn by Compose with OpenRgbTheme. -->
+    <style name="Theme.OpenRgbRemote" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+    <color name="window_background">#FFFDF7FF</color>
+    <color name="ic_launcher_background">#FF141218</color>
+</resources>

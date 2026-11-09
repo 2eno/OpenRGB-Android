@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_type_motherboard">Motherboard</string>
+    <string name="device_type_dram">Memory</string>
+    <string name="device_type_gpu">Graphics card</string>
+    <string name="device_type_cooler">Cooler</string>
+    <string name="device_type_ledstrip">LED strip</string>
+    <string name="device_type_keyboard">Keyboard</string>
+    <string name="device_type_mouse">Mouse</string>
+    <string name="device_type_mousemat">Mouse pad</string>
+    <string name="device_type_headset">Headset</string>
+    <string name="device_type_headset_stand">Headset stand</string>
+    <string name="device_type_gamepad">Gamepad</string>
+    <string name="device_type_light">Light</string>
+    <string name="device_type_speaker">Speaker</string>
+    <string name="device_type_virtual">Virtual device</string>
+    <string name="device_type_storage">Storage</string>
+    <string name="device_type_case">Case</string>
+    <string name="device_type_microphone">Microphone</string>
+    <string name="device_type_accessory">Accessory</string>
+    <string name="device_type_keypad">Keypad</string>
+    <string name="device_type_laptop">Laptop</string>
+    <string name="device_type_monitor">Monitor</string>
+    <string name="device_type_unknown">Device</string>
+</resources>

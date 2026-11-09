@@ -152,8 +152,10 @@ public class OpenRgbConnection(
                 return
             }
             val wait = policy.delayFor(failures, random)
+            // Drop stale retry requests *before* publishing the state: a retry triggered by someone
+            // observing Reconnecting must not be swallowed.
+            retryNow.tryReceive()
             _state.value = ConnectionState.Reconnecting(failures, wait, error)
-            retryNow.tryReceive() // drop stale retry requests
             select {
                 retryNow.onReceive { }
                 onTimeout(wait) { }

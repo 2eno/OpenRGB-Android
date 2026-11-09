@@ -12,20 +12,42 @@ läuft (Standardport **6742**).
 | Schritt | Status |
 |---|---|
 | 1. Architektur & Projektstruktur | ✅ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| 2a. Protokoll-Modul `:openrgb-sdk` (v0–6, Reconnect, Backpressure, Scan) | ✅ 114 Tests |
-| 2b. Verbindungen / Geräteliste (App) | ⏳ |
+| 2a. Protokoll-Modul `:openrgb-sdk` (v0–6, Reconnect, Backpressure, Scan) | ✅ |
+| 2b. Verbindungen, Netzwerk-Scan, Geräteliste, Detailansicht, Onboarding (App) | ✅ |
 | 2c. Farbsteuerung | ⏳ |
 | 2d. Profile | ⏳ |
 | 2e. Effekt-Engine | ⏳ |
 | 2f. UI-Feinschliff, Widgets, Kacheln | ⏳ |
 
+## Screenshots
+
+Gerendert von den Robolectric-Screenshot-Tests (`app/src/test/.../ScreenshotTest.kt`). Die Gerätedaten
+stammen aus echten Paketen eines OpenRGB-1.0-Servers; die Farben sind zur Demonstration gesetzt,
+weil Debug-Geräte alle LEDs als schwarz melden.
+
+| Geräte | Detail (Tastatur-Matrix) | Onboarding: Verbinden | Fehlermeldung |
+|---|---|---|---|
+| ![](docs/screenshots/devices_phone_de.png) | ![](docs/screenshots/device_detail_keyboard_de.png) | ![](docs/screenshots/onboarding_3_connect_de.png) | ![](docs/screenshots/server_edit_failure_de.png) |
+
+Tablet: ![](docs/screenshots/devices_tablet_de.png)
+
 ## Bauen & Testen
 
-Voraussetzung: JDK 17+ (der Gradle-Wrapper lädt Gradle 9.9 automatisch).
+Voraussetzungen: JDK 17+, Android SDK (Plattform 37) mit `ANDROID_HOME` oder `local.properties`.
+Der Gradle-Wrapper lädt Gradle 9.9 automatisch.
 
 ```bash
-./gradlew :openrgb-sdk:test
+./gradlew :app:assembleDebug                      # APK
+./gradlew test :core:data:testDebugUnitTest :app:testDebugUnitTest   # alle Unit-Tests
+./gradlew :app:lintDebug                          # Lint (Warnungen gelten als Fehler)
 ```
+
+Die Screenshot-Tests schreiben PNGs nach `app/build/screenshots/`. Robolectric läuft offline:
+seine Android-Laufzeit wird über Gradle aufgelöst (siehe `app/build.gradle.kts`).
+
+Texte stehen in `tools/strings_app.py` (Englisch + Deutsch) und werden mit
+`python3 tools/strings_app.py` nach `app/src/main/res/values*/strings.xml` generiert. So fehlt nie
+ein Schlüssel in einer der Sprachen.
 
 ### Tests gegen einen echten OpenRGB-Server
 
@@ -36,7 +58,7 @@ openrgb --server --server-port 6742
 OPENRGB_TEST_SERVER=192.168.1.20:6742 ./gradlew :openrgb-sdk:test
 ```
 
-Die Fixtures unter `openrgb-sdk/src/test/resources/fixtures/openrgb-1.0` wurden mit
+Die Fixtures unter `openrgb-sdk/src/testFixtures/resources/fixtures/openrgb-1.0` wurden mit
 `tools/capture_fixtures.py` von einem OpenRGB-1.0-Server mit Debug-Geräten mitgeschnitten
 (Anleitung im Skriptkopf).
 

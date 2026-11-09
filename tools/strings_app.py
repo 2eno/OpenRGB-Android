@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""Single source for the app's English and German strings.
+
+Generates app/src/main/res/values/strings.xml and values-de/strings.xml so that both languages
+always contain the same keys. Run after editing: python3 tools/strings_app.py
+"""
+import os
+from xml.sax.saxutils import escape
+
+S = {
+    "app_name": ("OpenRGB Remote", "OpenRGB Remote"),
+    "nav_devices": ("Devices", "Geräte"),
+    "nav_settings": ("Settings", "Einstellungen"),
+    "action_retry": ("Retry", "Erneut versuchen"),
+    "action_refresh": ("Refresh", "Aktualisieren"),
+    "action_back": ("Back", "Zurück"),
+    "action_save": ("Save", "Speichern"),
+    "action_cancel": ("Cancel", "Abbrechen"),
+    "action_delete": ("Delete", "Löschen"),
+    "action_edit": ("Edit", "Bearbeiten"),
+    "action_connect": ("Connect", "Verbinden"),
+    "action_disconnect": ("Disconnect", "Trennen"),
+    "action_add_pc": ("Add PC", "PC hinzufügen"),
+    "action_scan_network": ("Search network", "Netzwerk durchsuchen"),
+    "action_enter_manually": ("Enter address manually", "Adresse manuell eingeben"),
+    "action_more": ("More options", "Weitere Optionen"),
+    "action_rescan_hardware": ("Re-detect hardware", "Hardware neu erkennen"),
+    "action_continue": ("Continue", "Weiter"),
+    "action_skip": ("Skip", "Überspringen"),
+    "action_copy": ("Copy command", "Befehl kopieren"),
+
+    "status_connected": ("Connected", "Verbunden"),
+    "status_connecting": ("Connecting…", "Verbinde…"),
+    "status_offline": ("Disconnected", "Getrennt"),
+    "status_retry_in": ("Retrying in %1$d s", "Neuer Versuch in %1$d s"),
+    "status_retrying": ("Retrying…", "Neuer Versuch…"),
+    "status_failed": ("Failed", "Fehlgeschlagen"),
+
+    "problem_unknown_host_title": ("PC name not found", "PC-Name nicht gefunden"),
+    "problem_unknown_host_text": ("The name could not be resolved in your network.", "Der Name konnte in deinem Netzwerk nicht aufgelöst werden."),
+    "problem_unknown_host_hint": ("Use the PC’s IP address (e.g. 192.168.1.20) or check the spelling.", "Verwende die IP-Adresse des PCs (z. B. 192.168.1.20) oder prüfe die Schreibweise."),
+    "problem_refused_title": ("OpenRGB server is not running", "OpenRGB-Server läuft nicht"),
+    "problem_refused_text": ("The PC answers, but no server is listening on this port.", "Der PC antwortet, aber auf diesem Port läuft kein Server."),
+    "problem_refused_hint": ("In OpenRGB, open the “SDK Server” tab and press “Start Server”. Also check the port.", "Öffne in OpenRGB den Tab „SDK Server“ und klicke auf „Start Server“. Prüfe auch den Port."),
+    "problem_timeout_title": ("No answer from the PC", "Keine Antwort vom PC"),
+    "problem_timeout_text": ("The PC did not answer in time.", "Der PC hat nicht rechtzeitig geantwortet."),
+    "problem_timeout_hint": ("Is the PC switched on and in the same network? Check the IP address and that the firewall allows TCP port 6742.", "Ist der PC eingeschaltet und im selben Netzwerk? Prüfe die IP-Adresse und ob die Firewall TCP-Port 6742 erlaubt."),
+    "problem_unreachable_title": ("PC not reachable", "PC nicht erreichbar"),
+    "problem_unreachable_text": ("There is no network route to this address.", "Es gibt keinen Netzwerkweg zu dieser Adresse."),
+    "problem_unreachable_hint": ("Make sure your phone is in the same Wi-Fi (or VPN) as the PC.", "Prüfe, ob dein Handy im selben WLAN (oder VPN) ist wie der PC."),
+    "problem_not_openrgb_title": ("Not an OpenRGB server", "Kein OpenRGB-Server"),
+    "problem_not_openrgb_text": ("A different program answers on this port.", "Auf diesem Port antwortet ein anderes Programm."),
+    "problem_not_openrgb_hint": ("Check the port. OpenRGB uses 6742 by default.", "Prüfe den Port. OpenRGB nutzt standardmäßig 6742."),
+    "problem_protocol_title": ("Unexpected answer", "Unerwartete Antwort"),
+    "problem_protocol_text": ("The server sent data the app does not understand.", "Der Server hat Daten gesendet, die die App nicht versteht."),
+    "problem_protocol_hint": ("Update OpenRGB on the PC and try again.", "Aktualisiere OpenRGB auf dem PC und versuche es erneut."),
+    "problem_lost_title": ("Connection interrupted", "Verbindung unterbrochen"),
+    "problem_lost_text": ("The connection to the PC was closed.", "Die Verbindung zum PC wurde getrennt."),
+    "problem_lost_hint": ("Was OpenRGB closed or did the PC go to sleep? The app reconnects automatically.", "Wurde OpenRGB beendet oder ist der PC im Standby? Die App verbindet sich automatisch neu."),
+    "problem_no_network_title": ("No network", "Kein Netzwerk"),
+    "problem_no_network_text": ("Your phone is not connected to any network.", "Dein Handy ist mit keinem Netzwerk verbunden."),
+    "problem_no_network_hint": ("Turn on Wi-Fi or connect to your VPN.", "Aktiviere WLAN oder verbinde dich mit deinem VPN."),
+    "problem_unknown_title": ("Connection failed", "Verbindung fehlgeschlagen"),
+    "problem_unknown_text": ("An unexpected error occurred.", "Ein unerwarteter Fehler ist aufgetreten."),
+    "problem_unknown_hint": ("Try again. If it keeps failing, restart OpenRGB on the PC.", "Versuche es erneut. Falls es weiter fehlschlägt, starte OpenRGB auf dem PC neu."),
+    "problem_details": ("Details: %1$s", "Details: %1$s"),
+
+    "devices_empty_title": ("No PC added yet", "Noch kein PC hinzugefügt"),
+    "devices_empty_text": ("Add a PC running OpenRGB with the SDK server enabled. The app can search your Wi-Fi, or you enter the address yourself.", "Füge einen PC hinzu, auf dem OpenRGB mit aktiviertem SDK-Server läuft. Die App kann dein WLAN durchsuchen, oder du gibst die Adresse selbst ein."),
+    "devices_none_found_title": ("No RGB devices reported", "Keine RGB-Geräte gemeldet"),
+    "devices_none_found_text": ("OpenRGB is running but found no hardware. On Linux, check the udev rules; on Windows, run OpenRGB as administrator once. Then re-detect the hardware.", "OpenRGB läuft, hat aber keine Hardware gefunden. Prüfe unter Linux die udev-Regeln, starte OpenRGB unter Windows einmal als Administrator. Lass danach die Hardware neu erkennen."),
+    "devices_offline_hint": ("Not connected. Tap “Connect” to load the devices.", "Nicht verbunden. Tippe auf „Verbinden“, um die Geräte zu laden."),
+    "devices_loading": ("Loading devices…", "Geräte werden geladen…"),
+    "device_mode": ("Mode: %1$s", "Modus: %1$s"),
+    "device_no_leds": ("No LEDs", "Keine LEDs"),
+    "device_card_description": ("%1$s, %2$s, %3$s", "%1$s, %2$s, %3$s"),
+    "device_colors_description": ("Current colors: %1$s", "Aktuelle Farben: %1$s"),
+
+    "detail_unavailable_title": ("Device not available", "Gerät nicht verfügbar"),
+    "detail_unavailable_text": ("It appears again as soon as its PC is connected and reports it.", "Es erscheint wieder, sobald sein PC verbunden ist und es meldet."),
+    "detail_section_info": ("Information", "Informationen"),
+    "detail_section_modes": ("Lighting modes", "Lichtmodi"),
+    "detail_section_zones": ("Zones and LEDs", "Zonen und LEDs"),
+    "detail_active_mode": ("Active", "Aktiv"),
+    "detail_vendor": ("Vendor", "Hersteller"),
+    "detail_type": ("Type", "Typ"),
+    "detail_description": ("Description", "Beschreibung"),
+    "detail_version": ("Firmware/version", "Firmware/Version"),
+    "detail_serial": ("Serial number", "Seriennummer"),
+    "detail_location": ("Connection", "Anschluss"),
+    "detail_server": ("PC", "PC"),
+    "detail_zone_single": ("Single LED", "Einzel-LED"),
+    "detail_zone_linear": ("Linear", "Linear"),
+    "detail_zone_matrix": ("Matrix", "Matrix"),
+    "detail_zone_ring": ("Ring", "Ring"),
+    "detail_zone_matrix_loop": ("Wrapping matrix", "Umlaufende Matrix"),
+    "detail_zone_segmented": ("Segmented", "Segmentiert"),
+    "detail_zone_other": ("Other", "Sonstige"),
+    "detail_zone_resizable": ("Adjustable size: %1$d–%2$d LEDs", "Anpassbare Größe: %1$d–%2$d LEDs"),
+    "detail_zone_empty": ("No LEDs are configured for this zone.", "Für diese Zone sind keine LEDs eingerichtet."),
+    "detail_matrix_description": ("LED matrix %1$d × %2$d", "LED-Matrix %1$d × %2$d"),
+
+    "servers_title": ("Your PCs", "Deine PCs"),
+    "servers_empty": ("No PC saved yet.", "Noch kein PC gespeichert."),
+    "servers_auto_connect": ("Connect automatically", "Automatisch verbinden"),
+    "servers_delete_title": ("Remove “%1$s”?", "„%1$s“ entfernen?"),
+    "servers_delete_text": ("The PC is removed from this app. Nothing changes on the PC.", "Der PC wird aus der App entfernt. Auf dem PC ändert sich nichts."),
+
+    "edit_title_add": ("Add PC", "PC hinzufügen"),
+    "edit_title_edit": ("Edit PC", "PC bearbeiten"),
+    "edit_name": ("Name", "Name"),
+    "edit_name_supporting": ("Optional, e.g. “Gaming PC”", "Optional, z. B. „Gaming-PC“"),
+    "edit_host": ("IP address or host name", "IP-Adresse oder Hostname"),
+    "edit_host_supporting": ("e.g. 192.168.1.20 or gaming-pc.local", "z. B. 192.168.1.20 oder gaming-pc.local"),
+    "edit_port": ("Port", "Port"),
+    "edit_port_supporting": ("OpenRGB default: 6742", "Standard bei OpenRGB: 6742"),
+    "edit_error_host_empty": ("Enter an address.", "Gib eine Adresse ein."),
+    "edit_error_host_spaces": ("Addresses can’t contain spaces.", "Adressen dürfen keine Leerzeichen enthalten."),
+    "edit_error_host_invalid": ("Not a valid IP address or host name.", "Keine gültige IP-Adresse und kein gültiger Hostname."),
+    "edit_error_port_empty": ("Enter a port.", "Gib einen Port ein."),
+    "edit_error_port_nan": ("Only digits are allowed.", "Nur Ziffern sind erlaubt."),
+    "edit_error_port_range": ("The port must be between 1 and 65535.", "Der Port muss zwischen 1 und 65535 liegen."),
+    "edit_error_duplicate": ("This address is already saved as “%1$s”.", "Diese Adresse ist bereits als „%1$s“ gespeichert."),
+    "edit_test": ("Test connection", "Verbindung testen"),
+    "edit_testing": ("Testing…", "Teste…"),
+    "edit_test_success_title": ("Connection works", "Verbindung klappt"),
+    "edit_test_success_text": ("%1$s · protocol %2$d · %3$s", "%1$s · Protokoll %2$d · %3$s"),
+    "edit_auto_connect_supporting": ("Connect whenever the app is open", "Verbinden, sobald die App geöffnet ist"),
+
+    "scan_title": ("Search network", "Netzwerk durchsuchen"),
+    "scan_preparing": ("Preparing search…", "Suche wird vorbereitet…"),
+    "scan_running": ("Searching %1$s…", "Durchsuche %1$s…"),
+    "scan_done": ("Search of %1$s finished", "Suche in %1$s abgeschlossen"),
+    "scan_again": ("Search again", "Erneut suchen"),
+    "scan_saved": ("Saved", "Gespeichert"),
+    "scan_unconfirmed": ("Port open but no answer, possibly a very old OpenRGB version", "Port offen, aber keine Antwort, evtl. eine sehr alte OpenRGB-Version"),
+    "scan_confirmed": ("%1$s · protocol %2$d", "%1$s · Protokoll %2$d"),
+    "scan_none_title": ("No OpenRGB server found", "Kein OpenRGB-Server gefunden"),
+    "scan_none_text": ("Check on the PC: SDK server started (tab “SDK Server”), same network as this phone, firewall allows TCP port 6742. You can also enter the address manually.", "Prüfe am PC: SDK-Server gestartet (Tab „SDK Server“), gleiches Netzwerk wie dieses Handy, Firewall erlaubt TCP-Port 6742. Du kannst die Adresse auch manuell eingeben."),
+    "scan_no_network_title": ("No Wi-Fi", "Kein WLAN"),
+    "scan_no_network_text": ("The search only works in Wi-Fi or Ethernet networks. Over a VPN, enter the PC’s address manually.", "Die Suche funktioniert nur im WLAN oder per Ethernet. Über ein VPN gibst du die Adresse des PCs bitte manuell ein."),
+    "scan_add_description": ("Add %1$s", "%1$s hinzufügen"),
+
+    "settings_section_connections": ("Connections", "Verbindungen"),
+    "settings_servers": ("Manage PCs", "PCs verwalten"),
+    "settings_section_security": ("Security", "Sicherheit"),
+    "security_title": ("Use only in trusted networks", "Nur in vertrauenswürdigen Netzen verwenden"),
+    "security_text": ("The OpenRGB SDK server has no password and no encryption. Anyone in the same network can control your lighting and read the traffic. Use it only in your home network or through a VPN (e.g. WireGuard, Tailscale) and never forward port 6742 to the internet.", "Der OpenRGB SDK Server hat kein Passwort und keine Verschlüsselung. Jeder im selben Netzwerk kann deine Beleuchtung steuern und den Datenverkehr mitlesen. Nutze ihn nur im Heimnetz oder über ein VPN (z. B. WireGuard, Tailscale) und gib Port 6742 niemals ins Internet frei."),
+    "settings_section_about": ("About", "Über"),
+    "settings_version": ("Version", "Version"),
+    "settings_protocol": ("Supported protocol", "Unterstütztes Protokoll"),
+    "settings_protocol_value": ("OpenRGB SDK 0–6 (OpenRGB 0.3 to 1.1)", "OpenRGB SDK 0–6 (OpenRGB 0.3 bis 1.1)"),
+    "settings_disclaimer": ("Unofficial app, not affiliated with the OpenRGB project.", "Inoffizielle App, nicht mit dem OpenRGB-Projekt verbunden."),
+    "settings_show_onboarding": ("Show introduction again", "Einführung erneut anzeigen"),
+
+    "onboarding_step": ("Step %1$d of %2$d", "Schritt %1$d von %2$d"),
+    "onboarding_welcome_title": ("Your RGB lighting on your phone", "Deine RGB-Beleuchtung auf dem Handy"),
+    "onboarding_welcome_text": ("Control keyboards, fans, LED strips and more on your PCs. OpenRGB on the PC manages the hardware; this app connects to it over your network.", "Steuere Tastaturen, Lüfter, LED-Streifen und mehr auf deinen PCs. OpenRGB verwaltet die Hardware auf dem PC, diese App verbindet sich über dein Netzwerk damit."),
+    "onboarding_security_accept": ("I understand", "Verstanden"),
+    "onboarding_server_title": ("Start the OpenRGB server on your PC", "Starte den OpenRGB-Server auf deinem PC"),
+    "onboarding_server_step1": ("Install OpenRGB from openrgb.org and start it.", "Installiere OpenRGB von openrgb.org und starte es."),
+    "onboarding_server_step2": ("Open the “SDK Server” tab and press “Start Server”.", "Öffne den Tab „SDK Server“ und klicke auf „Start Server“."),
+    "onboarding_server_step3": ("Optional: enable “Start Server” in OpenRGB’s settings, or start OpenRGB without a window:", "Optional: Aktiviere „Start Server“ in den Einstellungen von OpenRGB, oder starte OpenRGB ohne Fenster:"),
+    "onboarding_server_step4": ("Allow TCP port 6742 in the PC’s firewall for your private network.", "Erlaube TCP-Port 6742 in der Firewall des PCs für dein privates Netzwerk."),
+    "onboarding_connect_title": ("Connect your PC", "Verbinde deinen PC"),
+    "onboarding_connect_text": ("Pick your PC from the list or enter its address.", "Wähle deinen PC aus der Liste oder gib seine Adresse ein."),
+    "command_copied": ("Command copied", "Befehl kopiert"),
+}
+
+PLURALS = {
+    "led_count": ({"one": "%d LED", "other": "%d LEDs"}, {"one": "%d LED", "other": "%d LEDs"}),
+    "zone_count": ({"one": "%d zone", "other": "%d zones"}, {"one": "%d Zone", "other": "%d Zonen"}),
+    "device_count": ({"one": "%d device", "other": "%d devices"}, {"one": "%d Gerät", "other": "%d Geräte"}),
+    "color_count": ({"one": "%d color", "other": "%d colors"}, {"one": "%d Farbe", "other": "%d Farben"}),
+    "more_leds": ({"one": "+%d more", "other": "+%d more"}, {"one": "+%d weitere", "other": "+%d weitere"}),
+    "servers_saved": ({"one": "%d PC saved", "other": "%d PCs saved"}, {"one": "%d PC gespeichert", "other": "%d PCs gespeichert"}),
+}
+
+
+def android_escape(text):
+    return escape(text).replace("'", "\\'").replace('"', '\\"')
+
+
+def write(index, folder):
+    root = os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "res", folder)
+    os.makedirs(root, exist_ok=True)
+    lines = ['<?xml version="1.0" encoding="utf-8"?>', "<!-- Generated by tools/strings_app.py, edit that file instead. -->", "<resources>"]
+    for key, values in S.items():
+        attr = ' translatable="false"' if key == "app_name" and index == 0 else ""
+        if key == "app_name" and index == 1:
+            continue
+        lines.append(f'    <string name="{key}"{attr}>{android_escape(values[index])}</string>')
+    for key, values in PLURALS.items():
+        lines.append(f'    <plurals name="{key}">')
+        for quantity, text in values[index].items():
+            lines.append(f'        <item quantity="{quantity}">{android_escape(text)}</item>')
+        lines.append("    </plurals>")
+    lines.append("</resources>")
+    with open(os.path.join(root, "strings.xml"), "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
+write(0, "values")
+write(1, "values-de")
+print("strings written: %d keys, %d plurals" % (len(S), len(PLURALS)))

@@ -11,7 +11,7 @@ Start an OpenRGB server with debug devices first, e.g.:
 
 Then run:
 
-    python3 tools/capture_fixtures.py --port 16742 --out openrgb-sdk/src/test/resources/fixtures/openrgb-1.0
+    python3 tools/capture_fixtures.py --port 16742 --out openrgb-sdk/src/testFixtures/resources/fixtures/openrgb-1.0
 
 For every protocol version 0..6 the script opens a fresh connection, negotiates that version
 (version 0 skips the version request, like an OpenRGB 0.3 client), requests the controller count

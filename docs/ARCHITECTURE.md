@@ -27,11 +27,11 @@ OpenRGB-Android/
 │       ├── client/              OpenRgbClient, OpenRgbConnection (Auto-Reconnect), LedFrameStreamer, ConnectionError
 │       └── discovery/           Ipv4Subnet, OpenRgbProbe, SubnetScanner
 ├── core/
-│   ├── domain/                  ⏳ Kotlin/JVM – Entities (Server, Profile, Schedule), Repository-Interfaces, Use-Cases
+│   ├── domain/                  ✅ Kotlin/JVM – Server, Status, DeviceKey, Repository-Interfaces, Use-Cases
 │   ├── effects/                 ⏳ Kotlin/JVM – Effekt-Renderer, LED-Geometrie, EffectRunner (Taktgeber)
-│   ├── data/                    ⏳ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Repositories
-│   └── designsystem/            ⏳ Android-Lib – Material-3-Theme, Farbwähler, Gerätesymbole, gemeinsame Komponenten
-├── app/                         ⏳ Android-App
+│   ├── data/                    ✅ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Scan, Hilt
+│   └── designsystem/            ✅ Android-Lib – Material-3-Theme, Gerätesymbole, LED-Darstellung (Farbwähler ⏳)
+├── app/                         ✅ Android-App (Geräte, Detail, PCs, Scan, Einstellungen, Onboarding; Rest ⏳)
 │   └── src/main/kotlin/io/github/openrgbremote/
 │       ├── feature/onboarding/  Drei-Schritte-Onboarding inkl. Anleitung „SDK-Server starten“
 │       ├── feature/devices/     Geräteübersicht, Detailansicht (Zonen/LEDs), Farbsteuerung
@@ -106,16 +106,26 @@ gestartet/falscher Port), Zeitüberschreitung (PC aus/falsche IP/Firewall), nich
 (anderes Netz/VLAN), kein OpenRGB-Server, Protokollfehler und Verbindung verloren. Die App
 bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag ab.
 
-## 4. Datenschicht (geplant)
+## 4. Datenschicht
 
-* **ConnectionManager** (Singleton, Hilt) verwaltet eine `OpenRgbConnection` pro gespeichertem PC
-  und stellt `StateFlow`s für Status und Geräte aller Server bereit. Netzwerkwechsel
-  (`ConnectivityManager.NetworkCallback`) lösen `retryNow()` aus.
+* **ConnectionManager** (Singleton, Hilt, reines Kotlin und auf der JVM gegen den Fake-Server
+  getestet) verwaltet eine `OpenRgbConnection` pro PC, der gerade verbunden sein soll. Ein PC ist
+  verbunden, solange die App *aktiv* ist und er „automatisch verbinden“ hat oder manuell verbunden
+  wurde. Ein einziger Collector berechnet das bei jeder Änderung der Serverliste, der Aktivität oder
+  der manuellen Overrides neu, sodass keine Locks zwischen UI und Lifecycle nötig sind.
+* **Aktiv** heißt: App im Vordergrund (`ProcessLifecycleOwner`) oder ein Keep-Alive-Handle ist
+  gehalten (ab Schritt 2e vom Effekt-Service). Nach 30 s im Hintergrund werden Verbindungen
+  geschlossen, was Akku und Server schont.
+* Kehrt das Netzwerk zurück (`ConnectivityManager`-Default-Network-Callback), wird der Backoff
+  übersprungen. Ohne Netzwerk wird jeder Fehler als „Kein Netzwerk“ angezeigt.
+* **Scan:** Die IPv4-Adresse und das Präfix kommen aus `LinkProperties` des WLAN-/Ethernet-Netzes,
+  bei aktivem VPN aus dem Netz darunter.
 * **Stabile Geräte-Identität:** Unique-IDs (v6) gelten nur für eine Serversitzung, Indizes (v0–5)
   verschieben sich. Profile referenzieren Geräte daher über `serverId + name + location + serial`
   und werden bei jeder Verbindung neu aufgelöst.
-* **Room:** `servers`, `profiles` (Kopfdaten + JSON-Payload, versioniert), `favorite_colors`, `schedules`.
-* **DataStore:** Onboarding-Status, Ziel-FPS, Haptik, zuletzt aktives Profil, Sicherheitshinweis bestätigt.
+* **Room:** `servers` ✅ (Schema exportiert nach `core/data/schemas`); folgen: `profiles`
+  (Kopfdaten + JSON-Payload, versioniert), `favorite_colors`, `schedules`.
+* **DataStore:** Onboarding-Status ✅; folgen: Ziel-FPS, Haptik, zuletzt aktives Profil.
 * **Profil-Format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, Ziel
   `global | devices[]`, Parameter. Dasselbe Format dient für Import und Export, inklusive `schemaVersion`.
 
@@ -131,7 +141,12 @@ bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag 
 * Hardware-Modi des Geräts (`UpdateMode`) laufen ohne Netzwerklast auf dem Controller und sind der
   empfohlene Weg, wenn das Handy nicht dauerhaft streamen soll.
 
-## 6. Präsentation (geplant)
+## 6. Präsentation
+
+Jeder Screen ist ein zustandsloses `XyzScreen(state, actions)` plus eine dünne `XyzRoute`, die das
+ViewModel anbindet. So lassen sich die Screens ohne Hilt in Screenshot-Tests rendern.
+Profile und Effekte kommen als weitere Tabs hinzu, sobald sie umgesetzt sind.
+
 
 * Compose + Material 3 mit Dynamic Color und Dark Mode, `NavigationSuiteScaffold`: Bottom-Bar am
   Telefon, Navigation-Rail auf Tablets, List-Detail-Layout für Geräte.
@@ -175,6 +190,10 @@ eine Network-Security-Config ist daher nicht nötig.
   „Unbekannt“ unterschiedliche Rohwerte. Aufgelöst wird zugunsten des neueren Releases, siehe `DeviceType`.
 * **Server mit Protokoll 0** werden erst nach 2 s Timeout erkannt.
 * **Netzwerk-Scan:** nur IPv4, maximal ein /22 (größere Netze: das /24 um die eigene Adresse).
+  Firewalls, die Verbindungen stumm verwerfen, verlängern den Scan; nicht antwortende Adressen
+  kosten jeweils 400 ms (64 parallel).
+* **Hintergrund:** Ohne laufenden Effekt trennt die App 30 s nach dem Verlassen. Beim Zurückkehren
+  dauert es einen Verbindungsaufbau (meist < 1 s), bis Geräte wieder erscheinen.
   VPN-Ziele müssen manuell eingetragen werden. mDNS bietet der OpenRGB-Server nicht an.
 * **Mehrere Clients gleichzeitig** (z. B. OpenRGB-GUI-Effekte und die App): Es gilt
   „der letzte Schreiber gewinnt“. Laufende Effekte anderer Clients überschreiben die App.

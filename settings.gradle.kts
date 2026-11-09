@@ -23,3 +23,7 @@ dependencyResolutionManagement {
 rootProject.name = "OpenRGB-Android"
 
 include(":openrgb-sdk")
+include(":core:domain")
+include(":core:data")
+include(":core:designsystem")
+include(":app")

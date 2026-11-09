@@ -1,4 +1,4 @@
-package io.github.openrgbremote.sdk.client
+package io.github.openrgbremote.sdk.testing
 
 import io.github.openrgbremote.sdk.model.ColorArray
 import io.github.openrgbremote.sdk.model.DeviceType
@@ -39,6 +39,8 @@ class FakeOpenRgbServer(
     devices: List<OpenRgbDevice> = defaultDevices(),
     private val versionReplyDelayMillis: Long = 0,
     private val ackDelayMillis: Long = 0,
+    /** 0 picks a free port; a fixed port lets tests simulate a server coming back. */
+    fixedPort: Int = 0,
 ) : AutoCloseable {
 
     class Received(val connection: Int, val packet: Packet, val clientVersion: Int)
@@ -54,7 +56,10 @@ class FakeOpenRgbServer(
         }
     }
 
-    private val serverSocket = ServerSocket(0, 50, InetAddress.getLoopbackAddress())
+    private val serverSocket = ServerSocket().apply {
+        reuseAddress = true
+        bind(java.net.InetSocketAddress(InetAddress.getLoopbackAddress(), fixedPort), 50)
+    }
     private val connections = CopyOnWriteArrayList<Connection>()
     private val connectionCounter = AtomicInteger()
 

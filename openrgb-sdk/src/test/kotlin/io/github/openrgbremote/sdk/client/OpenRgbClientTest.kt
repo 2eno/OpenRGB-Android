@@ -1,5 +1,8 @@
 package io.github.openrgbremote.sdk.client
 
+import io.github.openrgbremote.sdk.testing.FakeOpenRgbServer
+import io.github.openrgbremote.sdk.testing.GarbageServer
+import io.github.openrgbremote.sdk.testing.closedPort
 import io.github.openrgbremote.sdk.protocol.DeviceCodec
 import io.github.openrgbremote.sdk.protocol.LittleEndianReader
 import io.github.openrgbremote.sdk.protocol.PacketId

@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // on the JVM and reused by any Kotlin client.
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    `java-test-fixtures`
 }
 
 java {
@@ -20,6 +21,8 @@ kotlin {
 
 dependencies {
     implementation(libs.kotlinx.coroutines.core)
+
+    testFixturesImplementation(libs.kotlinx.coroutines.core)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit.jupiter)
