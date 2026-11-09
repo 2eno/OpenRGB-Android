@@ -11,7 +11,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "io.github.openrgbremote"
+        applicationId = "dev.eno2.openrgbremote"
         minSdk = 26
         targetSdk = 37
         versionCode = 1
