@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Computer
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material.icons.outlined.Sensors
@@ -23,6 +24,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +62,7 @@ fun DevicesRoute(
     onOpenDevice: (String) -> Unit,
     onScan: () -> Unit,
     onAddManually: () -> Unit,
+    onColorAll: () -> Unit,
     viewModel: DevicesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -73,6 +76,7 @@ fun DevicesRoute(
             onRescanHardware = viewModel::rescanHardware,
             onScan = onScan,
             onAddManually = onAddManually,
+            onColorAll = onColorAll,
         ),
     )
 }
@@ -85,14 +89,25 @@ data class DevicesActions(
     val onRescanHardware: (Long) -> Unit = {},
     val onScan: () -> Unit = {},
     val onAddManually: () -> Unit = {},
+    val onColorAll: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DevicesScreen(state: DevicesUiState, actions: DevicesActions) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val anyDevice = state.servers.any { it.devices.isNotEmpty() }
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        floatingActionButton = {
+            if (anyDevice) {
+                ExtendedFloatingActionButton(
+                    onClick = actions.onColorAll,
+                    icon = { Icon(Icons.Outlined.Palette, contentDescription = null) },
+                    text = { Text(stringResource(R.string.action_color_all)) },
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.nav_devices)) },
@@ -117,7 +132,7 @@ fun DevicesScreen(state: DevicesUiState, actions: DevicesActions) {
             ) {
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 300.dp),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 96.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),

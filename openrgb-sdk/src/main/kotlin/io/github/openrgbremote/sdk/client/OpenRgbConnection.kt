@@ -100,7 +100,10 @@ public class OpenRgbConnection(
     /** Starts the connect/reconnect loop; no-op if already running. */
     @Synchronized
     public fun start() {
-        if (job?.isActive == true) return
+        // After giving up the loop sets Failed and then returns; its job can still be active for
+        // a moment. A restart requested in that window must not be ignored.
+        if (job?.isActive == true && _state.value !is ConnectionState.Failed) return
+        job?.cancel()
         job = scope.launch { runLoop() }
     }
 

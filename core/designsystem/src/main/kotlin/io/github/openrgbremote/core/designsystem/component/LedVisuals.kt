@@ -3,6 +3,7 @@ package io.github.openrgbremote.core.designsystem.component
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.openrgbremote.sdk.model.ColorArray
@@ -83,6 +85,8 @@ fun LedMatrix(
     colors: ColorArray,
     zoneStart: Int,
     modifier: Modifier = Modifier,
+    /** Called with the LED index relative to the zone when a cell is tapped. */
+    onLedClick: ((Int) -> Unit)? = null,
 ) {
     val outline = MaterialTheme.colorScheme.outlineVariant
     val aspect = map.width.toFloat() / map.height.coerceAtLeast(1)
@@ -91,7 +95,21 @@ fun LedMatrix(
         modifier
             .widthIn(max = MAX_CELL * map.width)
             .fillMaxWidth()
-            .aspectRatio(if (aspect.isFinite() && aspect > 0f) aspect else 1f),
+            .aspectRatio(if (aspect.isFinite() && aspect > 0f) aspect else 1f)
+            .then(
+                if (onLedClick == null) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(map, onLedClick) {
+                        detectTapGestures { position ->
+                            val cell = minOf(size.width.toFloat() / map.width, size.height.toFloat() / map.height)
+                            val row = (position.y / cell).toInt()
+                            val column = (position.x / cell).toInt()
+                            if (row in 0 until map.height && column in 0 until map.width) map.ledAt(row, column)?.let(onLedClick)
+                        }
+                    }
+                },
+            ),
     ) {
         val cell = minOf(size.width / map.width, size.height / map.height)
         val gap = cell * 0.12f

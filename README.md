@@ -14,7 +14,7 @@ läuft (Standardport **6742**).
 | 1. Architektur & Projektstruktur | ✅ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | 2a. Protokoll-Modul `:openrgb-sdk` (v0–6, Reconnect, Backpressure, Scan) | ✅ |
 | 2b. Verbindungen, Netzwerk-Scan, Geräteliste, Detailansicht, Onboarding (App) | ✅ |
-| 2c. Farbsteuerung | ⏳ |
+| 2c. Farbsteuerung (Farbrad, HSV, Hex, Favoriten, Ziele, Live-Vorschau) und Hardware-Modi | ✅ |
 | 2d. Profile | ⏳ |
 | 2e. Effekt-Engine | ⏳ |
 | 2f. UI-Feinschliff, Widgets, Kacheln | ⏳ |
@@ -29,7 +29,11 @@ weil Debug-Geräte alle LEDs als schwarz melden.
 |---|---|---|---|
 | ![](docs/screenshots/devices_phone_de.png) | ![](docs/screenshots/device_detail_keyboard_de.png) | ![](docs/screenshots/onboarding_3_connect_de.png) | ![](docs/screenshots/server_edit_failure_de.png) |
 
-Tablet: ![](docs/screenshots/devices_tablet_de.png)
+| Farbsteuerung | Hardware-Modus |
+|---|---|
+| ![](docs/screenshots/color_all_de.png) | ![](docs/screenshots/device_detail_modes_de.png) |
+
+Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 
 ## Bauen & Testen
 

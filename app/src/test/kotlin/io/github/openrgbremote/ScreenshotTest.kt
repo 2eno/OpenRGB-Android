@@ -25,7 +25,18 @@ import io.github.openrgbremote.core.domain.model.Server
 import io.github.openrgbremote.core.domain.model.ServerOverview
 import io.github.openrgbremote.core.domain.usecase.ScanResultItem
 import io.github.openrgbremote.core.domain.usecase.ScanState
+import io.github.openrgbremote.feature.color.ColorScreen
+import io.github.openrgbremote.feature.color.ColorActions
+import io.github.openrgbremote.feature.color.ColorUiState
+import io.github.openrgbremote.feature.color.TargetDevice
+import io.github.openrgbremote.feature.color.TargetZone
+import io.github.openrgbremote.feature.devicedetail.DetailActions
 import io.github.openrgbremote.feature.devicedetail.DeviceDetailScreen
+import io.github.openrgbremote.core.domain.model.DeviceKey
+import io.github.openrgbremote.core.domain.model.HsvColor
+import io.github.openrgbremote.sdk.model.ColorMode
+import io.github.openrgbremote.sdk.model.DeviceMode
+import io.github.openrgbremote.sdk.model.ModeFlags
 import io.github.openrgbremote.feature.devicedetail.DeviceDetailUiState
 import io.github.openrgbremote.feature.devices.DevicesActions
 import io.github.openrgbremote.feature.devices.DevicesScreen
@@ -129,13 +140,13 @@ class ScreenshotTest {
     fun device_detail_keyboard_de() = capture("device_detail_keyboard_de", "de-w411dp-h1500dp-xxhdpi") {
         DeviceDetailScreen(
             DeviceDetailUiState(loading = false, device = demoDevices()[0], serverName = "Gaming-PC", status = overviews()[0].status),
-            onBack = {},
+            DetailActions(),
         )
     }
 
     @Test
     fun device_detail_unavailable_en() = capture("device_detail_unavailable_en", "+en") {
-        DeviceDetailScreen(DeviceDetailUiState(loading = false, keyName = "Debug Keyboard", status = overviews()[1].status), onBack = {})
+        DeviceDetailScreen(DeviceDetailUiState(loading = false, keyName = "Debug Keyboard", status = overviews()[1].status), DetailActions())
     }
 
     @Test
@@ -180,5 +191,52 @@ class ScreenshotTest {
             ServerFormActions(),
             onBack = {},
         )
+    }
+
+    private fun colorState(): ColorUiState {
+        val devices = demoDevices()
+        return ColorUiState(
+            loading = false,
+            color = HsvColor.fromRgb(0xFF6A00),
+            devices = devices.take(4).mapIndexed { i, d -> TargetDevice(DeviceKey.of(1, d), d.label, d.type, selected = i != 1, livePreview = i != 3) },
+            favorites = listOf(0xFF6A00, 0x00C7BE, 0x5E5CE6, 0xFF2D55),
+            canUndo = true,
+        )
+    }
+
+    @Test
+    fun color_all_de() = capture("color_all_de", "de-w411dp-h1250dp-xxhdpi") { ColorScreen(colorState(), ColorActions()) }
+
+    @Test
+    fun color_zone_en_dark() = capture("color_zone_en_dark", "en-w411dp-h1250dp-night-xxhdpi", dark = true) {
+        val keyboard = demoDevices()[0]
+        ColorScreen(
+            ColorUiState(
+                loading = false,
+                color = HsvColor(265f, 0.7f, 0.9f),
+                devices = listOf(TargetDevice(DeviceKey.of(1, keyboard), keyboard.label, keyboard.type, true, true)),
+                zones = keyboard.zones.mapIndexed { i, z -> TargetZone(i, z.label, i == 2 || i == 3) },
+                singleDeviceLabel = keyboard.label,
+                livePreview = false,
+            ),
+            ColorActions(),
+        )
+    }
+
+    @Test
+    fun color_tablet_de() = capture("color_tablet_de", "de-w1280dp-h800dp-land-xhdpi") { ColorScreen(colorState(), ColorActions()) }
+
+    @Test
+    fun device_detail_modes_de() = capture("device_detail_modes_de", "de-w411dp-h1100dp-xxhdpi") {
+        val wave = DeviceMode(
+            name = "Rainbow Wave", value = 3,
+            flags = ModeFlags.HAS_SPEED or ModeFlags.HAS_BRIGHTNESS or ModeFlags.HAS_DIRECTION_LR or ModeFlags.HAS_MODE_SPECIFIC_COLOR or ModeFlags.HAS_RANDOM_COLOR or ModeFlags.MANUAL_SAVE,
+            speedMin = 10, speedMax = 1, speed = 4, brightnessMin = 0, brightnessMax = 100, brightness = 80,
+            colorsMin = 1, colorsMax = 4, colorMode = ColorMode.MODE_SPECIFIC,
+            colors = ColorArray.of(intArrayOf(0xFF2D55, 0x0A84FF, 0x34C759)),
+        )
+        val base = demoDevices()[2]
+        val device = base.copy(modes = base.modes + listOf(DeviceMode("Static", flags = ModeFlags.HAS_MODE_SPECIFIC_COLOR), wave, DeviceMode("Breathing")), activeModeIndex = 2)
+        DeviceDetailScreen(DeviceDetailUiState(loading = false, device = device, serverName = "Gaming-PC", status = overviews()[0].status), DetailActions())
     }
 }

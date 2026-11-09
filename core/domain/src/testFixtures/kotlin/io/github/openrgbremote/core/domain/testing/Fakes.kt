@@ -1,6 +1,11 @@
 package io.github.openrgbremote.core.domain.testing
 
+import io.github.openrgbremote.core.domain.model.ColorTarget
 import io.github.openrgbremote.core.domain.model.ConnectionStatus
+import io.github.openrgbremote.core.domain.model.DeviceKey
+import io.github.openrgbremote.core.domain.repository.FavoriteColorRepository
+import io.github.openrgbremote.core.domain.repository.LightingRepository
+import io.github.openrgbremote.sdk.model.DeviceMode
 import io.github.openrgbremote.core.domain.model.ConnectionTestResult
 import io.github.openrgbremote.core.domain.model.ScanUpdate
 import io.github.openrgbremote.core.domain.model.Server
@@ -44,4 +49,42 @@ class FakeConnectionRepository : ConnectionRepository {
 
 class FakeDiscoveryRepository(private val updates: List<ScanUpdate>) : DiscoveryRepository {
     override fun scan(port: Int): Flow<ScanUpdate> = flowOf(*updates.toTypedArray())
+}
+
+class FakeLightingRepository : LightingRepository {
+    val calls = mutableListOf<String>()
+    var reachable = 1
+
+    override suspend fun setColor(targets: List<ColorTarget>, rgb: Int, preview: Boolean): Int {
+        calls += "color %06X %s %s".format(rgb, if (preview) "preview" else "final", targets.joinToString(",") { t ->
+            when (t) {
+                is ColorTarget.Device -> t.key.name
+                is ColorTarget.Zones -> t.key.name + t.zones.sorted()
+                is ColorTarget.Led -> t.key.name + "#" + t.index
+            }
+        })
+        return if (targets.isEmpty()) 0 else reachable
+    }
+
+    override suspend fun setFrame(key: DeviceKey, colors: IntArray): Boolean {
+        calls += "frame ${key.name} ${colors.size}"
+        return true
+    }
+
+    override suspend fun setMode(key: DeviceKey, modeIndex: Int, mode: DeviceMode): Boolean {
+        calls += "mode ${key.name} $modeIndex ${mode.name} speed=${mode.speed} brightness=${mode.brightness} dir=${mode.direction} colors=${mode.colors.size}"
+        return true
+    }
+
+    override suspend fun saveMode(key: DeviceKey, modeIndex: Int, mode: DeviceMode): Boolean {
+        calls += "save ${key.name} $modeIndex"
+        return true
+    }
+}
+
+class FakeFavoriteColorRepository(initial: List<Int> = emptyList()) : FavoriteColorRepository {
+    val colors = MutableStateFlow(initial)
+    override fun observeFavorites(): Flow<List<Int>> = colors
+    override suspend fun add(rgb: Int) = colors.update { listOf(rgb) + (it - rgb) }
+    override suspend fun remove(rgb: Int) = colors.update { it - rgb }
 }

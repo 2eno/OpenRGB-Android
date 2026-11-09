@@ -22,4 +22,12 @@
     <string name="device_type_laptop">Laptop</string>
     <string name="device_type_monitor">Monitor</string>
     <string name="device_type_unknown">Device</string>
+    <string name="picker_wheel">Color wheel: hue %1$d degrees, saturation %2$d percent. Use the sliders below for precise control.</string>
+    <string name="picker_hue">Hue</string>
+    <string name="picker_saturation">Saturation</string>
+    <string name="picker_brightness">Brightness</string>
+    <string name="picker_hex">Hex code</string>
+    <string name="picker_hex_error">Use six hex digits, e.g. #FF8000</string>
+    <string name="picker_degrees">%1$d°</string>
+    <string name="picker_percent">%1$d %%</string>
 </resources>

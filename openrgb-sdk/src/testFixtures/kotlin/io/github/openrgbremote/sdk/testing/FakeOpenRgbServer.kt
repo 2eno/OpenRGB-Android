@@ -151,6 +151,18 @@ class FakeOpenRgbServer(
                     c.send(Packet(packet.deviceId, PacketId.REQUEST_CONTROLLER_DATA, DeviceCodec.encodeControllerData(devices[index], version)))
                 }
             }
+            PacketId.RGBCONTROLLER_UPDATEMODE -> {
+                val index = indexOf(c, packet.deviceId)
+                if (index >= 0) {
+                    val modeIndex = LittleEndianReader(packet.payload, 4).i32()
+                    val mode = DeviceCodec.decodeMode(LittleEndianReader(packet.payload, 8), c.clientVersion)
+                    val device = devices[index]
+                    if (modeIndex in device.modes.indices) {
+                        val modes = device.modes.toMutableList().also { it[modeIndex] = mode }
+                        devices = devices.toMutableList().also { it[index] = device.copy(activeModeIndex = modeIndex, modes = modes) }
+                    }
+                }
+            }
             PacketId.RGBCONTROLLER_UPDATELEDS -> {
                 val index = indexOf(c, packet.deviceId)
                 if (index >= 0) {

@@ -15,7 +15,7 @@ android {
 }
 
 dependencies {
-    api(project(":openrgb-sdk"))
+    api(project(":core:domain"))
     val bom = platform(libs.compose.bom)
     api(bom)
     api(libs.compose.ui)

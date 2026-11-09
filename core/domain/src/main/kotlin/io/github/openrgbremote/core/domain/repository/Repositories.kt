@@ -1,6 +1,9 @@
 package io.github.openrgbremote.core.domain.repository
 
 import io.github.openrgbremote.core.domain.model.AppSettings
+import io.github.openrgbremote.sdk.model.DeviceMode
+import io.github.openrgbremote.core.domain.model.DeviceKey
+import io.github.openrgbremote.core.domain.model.ColorTarget
 import io.github.openrgbremote.core.domain.model.ConnectionStatus
 import io.github.openrgbremote.core.domain.model.ConnectionTestResult
 import io.github.openrgbremote.core.domain.model.ScanUpdate
@@ -51,4 +54,31 @@ interface SettingsRepository {
     val settings: Flow<AppSettings>
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setSecurityNoticeAccepted(accepted: Boolean)
+}
+
+/** Changes colors and modes on connected devices. All calls are no-ops for unreachable devices. */
+interface LightingRepository {
+    /**
+     * Sets [rgb] (`0xRRGGBB`) on the targets and returns how many devices were reached.
+     * Devices are switched to their per-LED ("Direct") mode first. With [preview] = true the call
+     * is a cheap, droppable frame for live dragging; devices that can only take a color through a
+     * mode change are skipped until the final call with [preview] = false.
+     */
+    suspend fun setColor(targets: List<ColorTarget>, rgb: Int, preview: Boolean): Int
+
+    /** Sets one color per LED, e.g. to restore a snapshot. */
+    suspend fun setFrame(key: DeviceKey, colors: IntArray): Boolean
+
+    /** Activates a hardware mode with the given parameters. */
+    suspend fun setMode(key: DeviceKey, modeIndex: Int, mode: DeviceMode): Boolean
+
+    /** Stores the mode in the device's own memory (only modes with manual save, protocol 3+). */
+    suspend fun saveMode(key: DeviceKey, modeIndex: Int, mode: DeviceMode): Boolean
+}
+
+/** Colors the user saved as favorites, newest first. */
+interface FavoriteColorRepository {
+    fun observeFavorites(): Flow<List<Int>>
+    suspend fun add(rgb: Int)
+    suspend fun remove(rgb: Int)
 }

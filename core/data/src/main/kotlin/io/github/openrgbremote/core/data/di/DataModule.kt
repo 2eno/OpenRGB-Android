@@ -18,7 +18,12 @@ import io.github.openrgbremote.core.data.connection.ApplicationScope
 import io.github.openrgbremote.core.data.connection.ConnectionManager
 import io.github.openrgbremote.core.data.connection.NetworkMonitor
 import io.github.openrgbremote.core.data.db.AppDatabase
+import io.github.openrgbremote.core.data.db.FavoriteColorDao
 import io.github.openrgbremote.core.data.db.ServerDao
+import io.github.openrgbremote.core.data.lighting.LightingController
+import io.github.openrgbremote.core.data.repository.RoomFavoriteColorRepository
+import io.github.openrgbremote.core.domain.repository.FavoriteColorRepository
+import io.github.openrgbremote.core.domain.repository.LightingRepository
 import io.github.openrgbremote.core.data.discovery.AndroidLocalNetworkProvider
 import io.github.openrgbremote.core.data.discovery.LocalNetworkProvider
 import io.github.openrgbremote.core.data.discovery.NetworkScanRepository
@@ -49,6 +54,8 @@ abstract class DataBindings {
     @Binds abstract fun discoveryRepository(impl: NetworkScanRepository): DiscoveryRepository
     @Binds abstract fun connectionRepository(impl: ConnectionManager): ConnectionRepository
     @Binds @Singleton abstract fun networkMonitor(impl: AndroidNetworkMonitor): NetworkMonitor
+    @Binds abstract fun favoriteColorRepository(impl: RoomFavoriteColorRepository): FavoriteColorRepository
+    @Binds abstract fun lightingRepository(impl: LightingController): LightingRepository
     @Binds abstract fun localNetworkProvider(impl: AndroidLocalNetworkProvider): LocalNetworkProvider
 }
 
@@ -68,6 +75,14 @@ object DataModule {
 
     @Provides
     fun serverDao(db: AppDatabase): ServerDao = db.serverDao()
+
+    @Provides
+    fun favoriteColorDao(db: AppDatabase): FavoriteColorDao = db.favoriteColorDao()
+
+    @Provides
+    @Singleton
+    fun lightingController(connections: ConnectionManager, @ApplicationScope scope: CoroutineScope): LightingController =
+        LightingController(connections, scope)
 
     @Provides
     @Singleton

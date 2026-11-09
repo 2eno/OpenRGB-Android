@@ -20,3 +20,6 @@ import kotlinx.serialization.Serializable
 )
 
 @Serializable data object ScanRoute
+
+/** Color control. No [device]: all devices. [zone]/[led] are -1 when not restricted. */
+@Serializable data class ColorRoute(val device: String? = null, val zone: Int = -1, val led: Int = -1)

@@ -1,6 +1,22 @@
 package io.github.openrgbremote.feature.devicedetail
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import io.github.openrgbremote.sdk.model.DeviceMode
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -59,26 +75,72 @@ import io.github.openrgbremote.ui.common.ConnectionStatusPill
 import io.github.openrgbremote.ui.common.LoadingRow
 
 @Composable
-fun DeviceDetailRoute(onBack: () -> Unit, viewModel: DeviceDetailViewModel = hiltViewModel()) {
+fun DeviceDetailRoute(
+    onBack: () -> Unit,
+    onOpenColor: (deviceKey: String, zone: Int, led: Int) -> Unit,
+    viewModel: DeviceDetailViewModel = hiltViewModel(),
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    DeviceDetailScreen(state, onBack)
+    DeviceDetailScreen(
+        state,
+        DetailActions(
+            onBack = onBack,
+            onColor = { zone, led -> onOpenColor(state.encodedKey, zone, led) },
+            onSelectMode = viewModel::selectMode,
+            onModeChange = viewModel::updateActiveMode,
+            onSaveMode = viewModel::saveActiveMode,
+            onMessageShown = viewModel::messageShown,
+        ),
+    )
 }
+
+data class DetailActions(
+    val onBack: () -> Unit = {},
+    /** Opens the color screen; zone and led are -1 for "whole device". */
+    val onColor: (zone: Int, led: Int) -> Unit = { _, _ -> },
+    val onSelectMode: (Int) -> Unit = {},
+    val onModeChange: (DeviceMode) -> Unit = {},
+    val onSaveMode: () -> Unit = {},
+    val onMessageShown: () -> Unit = {},
+)
 
 /** Above this many LEDs a linear zone shows a sample plus "+N more" instead of every swatch. */
 private const val MAX_SWATCHES = 240
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeviceDetailScreen(state: DeviceDetailUiState, onBack: () -> Unit) {
+fun DeviceDetailScreen(state: DeviceDetailUiState, actions: DetailActions) {
     val device = state.device
+    val snackbar = remember { SnackbarHostState() }
+    val messageText = when (state.message) {
+        DetailMessage.MODE_SAVED -> stringResource(R.string.mode_saved)
+        DetailMessage.DEVICE_UNREACHABLE -> stringResource(R.string.mode_failed)
+        null -> null
+    }
+    LaunchedEffect(state.message) {
+        if (messageText != null) {
+            snackbar.showSnackbar(messageText)
+            actions.onMessageShown()
+        }
+    }
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text(device?.label ?: state.keyName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                    IconButton(onClick = actions.onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 },
             )
+        },
+        floatingActionButton = {
+            if (device != null && state.status is ConnectionStatus.Connected) {
+                ExtendedFloatingActionButton(
+                    onClick = { actions.onColor(-1, -1) },
+                    icon = { Icon(Icons.Outlined.Palette, contentDescription = null) },
+                    text = { Text(stringResource(R.string.action_color)) },
+                )
+            }
         },
     ) { padding ->
         when {
@@ -88,23 +150,33 @@ fun DeviceDetailScreen(state: DeviceDetailUiState, onBack: () -> Unit) {
                     ConnectionStatusPill(state.status)
                 }
             }
-            else -> DeviceDetailContent(device, state.serverName, state.status, Modifier.padding(padding))
+            else -> DeviceDetailContent(device, state.serverName, state.status, actions, Modifier.padding(padding))
         }
     }
 }
 
 @Composable
-private fun DeviceDetailContent(device: OpenRgbDevice, serverName: String?, status: ConnectionStatus, modifier: Modifier) {
+private fun DeviceDetailContent(device: OpenRgbDevice, serverName: String?, status: ConnectionStatus, actions: DetailActions, modifier: Modifier) {
+    val connected = status is ConnectionStatus.Connected
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         item { HeaderCard(device, serverName, status) }
-        item { SectionBlock { SectionHeader(stringResource(R.string.detail_section_modes)); ModeChips(device) } }
+        item {
+            SectionBlock {
+                SectionHeader(stringResource(R.string.detail_section_modes))
+                ModeChips(device, enabled = connected, onSelect = actions.onSelectMode)
+                val active = device.activeMode
+                if (active != null && connected) {
+                    ModeSettingsCard(active, actions.onModeChange, actions.onSaveMode, Modifier.padding(top = 12.dp))
+                }
+            }
+        }
         item { SectionBlock { SectionHeader(stringResource(R.string.detail_section_zones)) } }
-        items(device.zones, key = { it.startIndex.toString() + it.name }) { zone ->
-            SectionBlock { ZoneCard(device, zone) }
+        itemsIndexed(device.zones, key = { index, zone -> "$index-${zone.name}" }) { index, zone ->
+            SectionBlock { ZoneCard(device, zone, index, connected, actions.onColor) }
         }
         item { SectionBlock { SectionHeader(stringResource(R.string.detail_section_info)); InfoCard(device, serverName) } }
     }
@@ -135,34 +207,38 @@ private fun HeaderCard(device: OpenRgbDevice, serverName: String?, status: Conne
     }
 }
 
-/** Read-only list of modes; the active one is highlighted and announced as such. */
+/** One chip per hardware mode; tapping activates the mode with its current parameters. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ModeChips(device: OpenRgbDevice) {
-    val activeLabel = stringResource(R.string.detail_active_mode)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun ModeChips(device: OpenRgbDevice, enabled: Boolean, onSelect: (Int) -> Unit) {
+    val haptics = LocalHapticFeedback.current
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         device.modes.forEachIndexed { index, mode ->
             val active = index == device.activeModeIndex
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
-                border = if (active) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.semantics { if (active) stateDescription = activeLabel },
-            ) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (active) Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Text(mode.name, style = MaterialTheme.typography.labelLarge)
-                }
-            }
+            FilterChip(
+                selected = active,
+                enabled = enabled,
+                onClick = {
+                    if (!active) {
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onSelect(index)
+                    }
+                },
+                label = { Text(mode.name) },
+                leadingIcon = if (active) {
+                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                } else {
+                    null
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun ZoneCard(device: OpenRgbDevice, zone: Zone) {
+private fun ZoneCard(device: OpenRgbDevice, zone: Zone, zoneIndex: Int, connected: Boolean, onColor: (zone: Int, led: Int) -> Unit) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.padding(16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 16.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(zone.label, style = MaterialTheme.typography.titleMedium)
@@ -172,6 +248,11 @@ private fun ZoneCard(device: OpenRgbDevice, zone: Zone) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (connected && zone.ledsCount > 0) {
+                    IconButton(onClick = { onColor(zoneIndex, -1) }) {
+                        Icon(Icons.Outlined.Palette, contentDescription = stringResource(R.string.action_color_zone, zone.label))
+                    }
+                }
             }
             if (zone.isResizable) {
                 Text(
@@ -180,14 +261,20 @@ private fun ZoneCard(device: OpenRgbDevice, zone: Zone) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            ZoneLeds(device, zone)
+            Box(Modifier.padding(end = 8.dp)) {
+                ZoneLeds(device, zone, onLedClick = if (connected) ({ led -> onColor(-1, zone.startIndex + led) }) else null)
+            }
         }
     }
 }
 
+/**
+ * LEDs of a zone. Tapping one opens the color screen for that LED. For TalkBack the zone is one
+ * element with a summary; per-zone color is reachable through the zone's palette button.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ZoneLeds(device: OpenRgbDevice, zone: Zone) {
+private fun ZoneLeds(device: OpenRgbDevice, zone: Zone, onLedClick: ((Int) -> Unit)?) {
     if (zone.ledsCount == 0) {
         Text(stringResource(R.string.detail_zone_empty), style = MaterialTheme.typography.bodyMedium)
         return
@@ -204,16 +291,23 @@ private fun ZoneLeds(device: OpenRgbDevice, zone: Zone) {
     val matrix = zone.matrixMap
     if (zone.type.isMatrix && matrix != null) {
         val description = stringResource(R.string.detail_matrix_description, matrix.height, matrix.width) + ", " + summary
-        LedMatrix(matrix, device.colors, zone.startIndex, Modifier.clearAndSetSemantics { contentDescription = description })
+        LedMatrix(matrix, device.colors, zone.startIndex, Modifier.clearAndSetSemantics { contentDescription = description }, onLedClick)
     } else {
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
             modifier = Modifier.clearAndSetSemantics { contentDescription = summary },
         ) {
-            zoneColors.take(MAX_SWATCHES).forEach { LedSwatch(it) }
+            zoneColors.take(MAX_SWATCHES).forEachIndexed { index, rgb ->
+                // 32dp tap area around the 22dp swatch: dense enough for long strips.
+                Box(
+                    Modifier.size(32.dp).clip(CircleShape).then(if (onLedClick != null) Modifier.clickable { onLedClick(index) } else Modifier),
+                    contentAlignment = Alignment.Center,
+                ) { LedSwatch(rgb, size = 22.dp) }
+            }
             if (zoneColors.size > MAX_SWATCHES) {
-                Text(pluralStringResource(R.plurals.more_leds, zoneColors.size - MAX_SWATCHES, zoneColors.size - MAX_SWATCHES), style = MaterialTheme.typography.labelMedium)
+                val more = zoneColors.size - MAX_SWATCHES
+                Text(pluralStringResource(R.plurals.more_leds, more, more), style = MaterialTheme.typography.labelMedium)
             }
         }
     }

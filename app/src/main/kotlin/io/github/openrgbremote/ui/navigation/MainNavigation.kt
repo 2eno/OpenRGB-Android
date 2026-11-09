@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.openrgbremote.R
+import io.github.openrgbremote.feature.color.ColorRoute as ColorScreenRoute
 import io.github.openrgbremote.feature.devicedetail.DeviceDetailRoute as DeviceDetailScreenRoute
 import io.github.openrgbremote.feature.devices.DevicesRoute as DevicesScreenRoute
 import io.github.openrgbremote.feature.servers.ScanRoute as ScanScreenRoute
@@ -40,7 +41,7 @@ private enum class TopLevel(
 
 private fun NavDestination?.topLevel(): TopLevel? = when {
     this == null -> null
-    hasRoute(DevicesRoute::class) || hasRoute(DeviceDetailRoute::class) -> TopLevel.DEVICES
+    hasRoute(DevicesRoute::class) || hasRoute(DeviceDetailRoute::class) || hasRoute(ColorRoute::class) -> TopLevel.DEVICES
     else -> TopLevel.SETTINGS
 }
 
@@ -79,10 +80,17 @@ fun MainNavigation() {
                     onOpenDevice = { key -> navController.navigate(DeviceDetailRoute(key)) },
                     onScan = { navController.navigate(ScanRoute) },
                     onAddManually = { navController.navigate(ServerEditRoute()) },
+                    onColorAll = { navController.navigate(ColorRoute()) },
                 )
             }
             composable<DeviceDetailRoute> {
-                DeviceDetailScreenRoute(onBack = navController::navigateUp)
+                DeviceDetailScreenRoute(
+                    onBack = navController::navigateUp,
+                    onOpenColor = { key, zone, led -> navController.navigate(ColorRoute(key, zone, led)) },
+                )
+            }
+            composable<ColorRoute> {
+                ColorScreenRoute(onBack = navController::navigateUp)
             }
             composable<SettingsRoute> {
                 SettingsScreenRoute(onOpenServers = { navController.navigate(ServersRoute) })
