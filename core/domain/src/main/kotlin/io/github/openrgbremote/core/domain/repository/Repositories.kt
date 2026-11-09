@@ -6,6 +6,7 @@ import io.github.openrgbremote.core.domain.model.DeviceKey
 import io.github.openrgbremote.core.domain.model.ColorTarget
 import io.github.openrgbremote.core.domain.model.ConnectionStatus
 import io.github.openrgbremote.core.domain.model.ConnectionTestResult
+import io.github.openrgbremote.core.domain.model.Profile
 import io.github.openrgbremote.core.domain.model.ScanUpdate
 import io.github.openrgbremote.core.domain.model.Server
 import io.github.openrgbremote.sdk.model.OpenRgbDevice
@@ -81,4 +82,30 @@ interface FavoriteColorRepository {
     fun observeFavorites(): Flow<List<Int>>
     suspend fun add(rgb: Int)
     suspend fun remove(rgb: Int)
+}
+
+/** Profiles created by the user (built-in profiles live in code). */
+interface ProfileRepository {
+    fun observeProfiles(): Flow<List<Profile>>
+    suspend fun getProfile(id: Long): Profile?
+
+    /** Inserts ([Profile.id] == 0) or updates; returns the id. */
+    suspend fun save(profile: Profile): Long
+    suspend fun delete(id: Long)
+}
+
+/** Why an import was rejected. */
+enum class ProfileImportError { NOT_JSON, WRONG_FORMAT, NEWER_VERSION, NO_PROFILES }
+
+/** JSON exchange format for profiles. */
+interface ProfileCodec {
+    fun encode(profiles: List<Profile>): String
+
+    /** Returns the valid profiles of [json] or the reason it could not be read. */
+    fun decode(json: String): ProfileDecodeResult
+}
+
+sealed interface ProfileDecodeResult {
+    data class Success(val profiles: List<Profile>) : ProfileDecodeResult
+    data class Failure(val error: ProfileImportError) : ProfileDecodeResult
 }

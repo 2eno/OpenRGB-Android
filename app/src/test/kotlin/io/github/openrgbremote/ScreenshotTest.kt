@@ -42,6 +42,15 @@ import io.github.openrgbremote.feature.devices.DevicesActions
 import io.github.openrgbremote.feature.devices.DevicesScreen
 import io.github.openrgbremote.feature.devices.DevicesUiState
 import io.github.openrgbremote.feature.onboarding.OnboardingActions
+import io.github.openrgbremote.feature.profiles.ProfileEditActions
+import io.github.openrgbremote.feature.profiles.ProfileEditScreen
+import io.github.openrgbremote.feature.profiles.ProfileEditUiState
+import io.github.openrgbremote.feature.profiles.ProfilesActions
+import io.github.openrgbremote.feature.profiles.ProfilesScreen
+import io.github.openrgbremote.feature.profiles.ProfilesUiState
+import io.github.openrgbremote.core.domain.model.BuiltInProfiles
+import io.github.openrgbremote.core.domain.model.ColorLayout
+import io.github.openrgbremote.core.domain.model.Profile
 import io.github.openrgbremote.feature.onboarding.OnboardingScreen
 import io.github.openrgbremote.feature.servers.ServerEditScreen
 import io.github.openrgbremote.feature.servers.ServerEditUiState
@@ -238,5 +247,26 @@ class ScreenshotTest {
         val base = demoDevices()[2]
         val device = base.copy(modes = base.modes + listOf(DeviceMode("Static", flags = ModeFlags.HAS_MODE_SPECIFIC_COLOR), wave, DeviceMode("Breathing")), activeModeIndex = 2)
         DeviceDetailScreen(DeviceDetailUiState(loading = false, device = device, serverName = "Gaming-PC", status = overviews()[0].status), DetailActions())
+    }
+
+    private val customProfiles = listOf(
+        Profile(1, "Schreibtisch Abend", listOf(0xFF6A00, 0xFF2D55, 0x5E5CE6), ColorLayout.GRADIENT),
+        Profile(2, "Team-Farben", listOf(0x0A84FF, 0xFFFFFF, 0xFF3B30), ColorLayout.BLOCKS),
+        Profile(3, "Bonbon", listOf(0xFF2D55, 0x34C759, 0xFFD60A, 0x0A84FF), ColorLayout.ALTERNATING, brightness = 0.8f),
+    )
+
+    @Test
+    fun profiles_de() = capture("profiles_de", "de-w411dp-h1100dp-xxhdpi") {
+        ProfilesScreen(ProfilesUiState(loading = false, builtIn = BuiltInProfiles.all, custom = customProfiles), ProfilesActions())
+    }
+
+    @Test
+    fun profiles_tablet_en_dark() = capture("profiles_tablet_en_dark", "en-w1280dp-h800dp-land-night-xhdpi", dark = true) {
+        ProfilesScreen(ProfilesUiState(loading = false, builtIn = BuiltInProfiles.all, custom = customProfiles), ProfilesActions())
+    }
+
+    @Test
+    fun profile_edit_de() = capture("profile_edit_de", "+de") {
+        ProfileEditScreen(ProfileEditUiState(loading = false, profile = customProfiles[0]), ProfileEditActions())
     }
 }

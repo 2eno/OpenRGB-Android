@@ -15,12 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Save
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
@@ -30,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -47,10 +44,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.openrgbremote.R
-import io.github.openrgbremote.core.designsystem.component.ColorPickerPanel
 import io.github.openrgbremote.core.designsystem.component.rgbColor
-import io.github.openrgbremote.core.domain.model.HsvColor
 import io.github.openrgbremote.sdk.model.ColorArray
+import io.github.openrgbremote.ui.common.ColorPickerDialog
 import io.github.openrgbremote.sdk.model.ColorMode
 import io.github.openrgbremote.sdk.model.DeviceMode
 import io.github.openrgbremote.sdk.model.ModeDirection
@@ -143,8 +139,8 @@ fun ModeSettingsCard(mode: DeviceMode, onChange: (DeviceMode) -> Unit, onSave: (
 
     editing?.let { index ->
         if (index in 0 until mode.colors.size) {
-            ModeColorDialog(
-                index = index,
+            ColorPickerDialog(
+                title = stringResource(R.string.color_dialog_title, index + 1),
                 initial = mode.colors.rgbAt(index),
                 onDismiss = { editing = null },
                 onConfirm = { rgb ->
@@ -213,22 +209,6 @@ private fun ModeColors(mode: DeviceMode, onChange: (DeviceMode) -> Unit, onEdit:
             }
         }
     }
-}
-
-@Composable
-private fun ModeColorDialog(index: Int, initial: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
-    var color by remember { mutableStateOf(HsvColor.fromRgb(initial)) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.mode_color_dialog, index + 1)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                ColorPickerPanel(color, onColorChange = { color = it }, onChangeFinished = {})
-            }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(color.toRgb()) }) { Text(stringResource(R.string.action_done)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
 }
 
 private fun directionLabel(direction: Int): Int = when (direction) {

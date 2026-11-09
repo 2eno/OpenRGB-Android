@@ -23,3 +23,8 @@ import kotlinx.serialization.Serializable
 
 /** Color control. No [device]: all devices. [zone]/[led] are -1 when not restricted. */
 @Serializable data class ColorRoute(val device: String? = null, val zone: Int = -1, val led: Int = -1)
+
+@Serializable data object ProfilesRoute
+
+/** [profileId] 0 creates a new profile. */
+@Serializable data class ProfileEditRoute(val profileId: Long = 0)

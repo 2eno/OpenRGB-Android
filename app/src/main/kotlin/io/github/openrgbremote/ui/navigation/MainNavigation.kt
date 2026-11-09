@@ -4,6 +4,8 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Style
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -24,6 +26,8 @@ import io.github.openrgbremote.R
 import io.github.openrgbremote.feature.color.ColorRoute as ColorScreenRoute
 import io.github.openrgbremote.feature.devicedetail.DeviceDetailRoute as DeviceDetailScreenRoute
 import io.github.openrgbremote.feature.devices.DevicesRoute as DevicesScreenRoute
+import io.github.openrgbremote.feature.profiles.ProfileEditRoute as ProfileEditScreenRoute
+import io.github.openrgbremote.feature.profiles.ProfilesRoute as ProfilesScreenRoute
 import io.github.openrgbremote.feature.servers.ScanRoute as ScanScreenRoute
 import io.github.openrgbremote.feature.servers.ServerEditRoute as ServerEditScreenRoute
 import io.github.openrgbremote.feature.servers.ServersRoute as ServersScreenRoute
@@ -36,12 +40,14 @@ private enum class TopLevel(
     val icon: ImageVector,
 ) {
     DEVICES(DevicesRoute, R.string.nav_devices, Icons.Filled.Lightbulb, Icons.Outlined.Lightbulb),
+    PROFILES(ProfilesRoute, R.string.nav_profiles, Icons.Filled.Style, Icons.Outlined.Style),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings, Icons.Outlined.Settings),
 }
 
 private fun NavDestination?.topLevel(): TopLevel? = when {
     this == null -> null
     hasRoute(DevicesRoute::class) || hasRoute(DeviceDetailRoute::class) || hasRoute(ColorRoute::class) -> TopLevel.DEVICES
+    hasRoute(ProfilesRoute::class) || hasRoute(ProfileEditRoute::class) -> TopLevel.PROFILES
     else -> TopLevel.SETTINGS
 }
 
@@ -91,6 +97,12 @@ fun MainNavigation() {
             }
             composable<ColorRoute> {
                 ColorScreenRoute(onBack = navController::navigateUp)
+            }
+            composable<ProfilesRoute> {
+                ProfilesScreenRoute(onEdit = { id -> navController.navigate(ProfileEditRoute(id)) })
+            }
+            composable<ProfileEditRoute> {
+                ProfileEditScreenRoute(onDone = navController::navigateUp)
             }
             composable<SettingsRoute> {
                 SettingsScreenRoute(onOpenServers = { navController.navigate(ServersRoute) })

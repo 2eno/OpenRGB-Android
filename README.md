@@ -15,7 +15,7 @@ läuft (Standardport **6742**).
 | 2a. Protokoll-Modul `:openrgb-sdk` (v0–6, Reconnect, Backpressure, Scan) | ✅ |
 | 2b. Verbindungen, Netzwerk-Scan, Geräteliste, Detailansicht, Onboarding (App) | ✅ |
 | 2c. Farbsteuerung (Farbrad, HSV, Hex, Favoriten, Ziele, Live-Vorschau) und Hardware-Modi | ✅ |
-| 2d. Profile | ⏳ |
+| 2d. Profile (8 vorgefertigte, eigene, Duplizieren, JSON-Import/-Export, global oder pro Gerät) | ✅ |
 | 2e. Effekt-Engine | ⏳ |
 | 2f. UI-Feinschliff, Widgets, Kacheln | ⏳ |
 
@@ -32,6 +32,10 @@ weil Debug-Geräte alle LEDs als schwarz melden.
 | Farbsteuerung | Hardware-Modus |
 |---|---|
 | ![](docs/screenshots/color_all_de.png) | ![](docs/screenshots/device_detail_modes_de.png) |
+
+| Profile | Profil-Editor |
+|---|---|
+| ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) |
 
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 

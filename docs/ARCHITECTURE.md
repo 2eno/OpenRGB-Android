@@ -31,7 +31,7 @@ OpenRGB-Android/
 │   ├── effects/                 ⏳ Kotlin/JVM – Effekt-Renderer, LED-Geometrie, EffectRunner (Taktgeber)
 │   ├── data/                    ✅ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Scan, Hilt
 │   └── designsystem/            ✅ Android-Lib – Material-3-Theme, Gerätesymbole, LED-Darstellung und Farbwähler
-├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, PCs, Scan, Einstellungen, Onboarding; Rest ⏳)
+├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, PCs, Scan, Einstellungen, Onboarding; Rest ⏳)
 │   └── src/main/kotlin/io/github/openrgbremote/
 │       ├── feature/onboarding/  Drei-Schritte-Onboarding inkl. Anleitung „SDK-Server starten“
 │       ├── feature/devices/     Geräteübersicht, Detailansicht (Zonen/LEDs), Farbsteuerung
@@ -128,6 +128,17 @@ bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag 
 * Geräte **ohne Per-LED-Modus** bekommen die Farbe über die Farbliste ihres aktiven Modus. Das ist
   ein Moduswechsel, der Flash-Schreibzugriffe auslösen kann, und passiert deshalb nie in der
   Live-Vorschau, sondern erst beim Loslassen.
+* **Profile:** Ein statisches Profil ist Palette + Verteilung (Verlauf, Blöcke, abwechselnd) +
+  Helligkeit. `ProfileRenderer` (reines Kotlin) erzeugt daraus die LED-Farben; dieselbe Funktion
+  zeichnet die Vorschau in der App. Jede Zone zeigt das ganze Profil, Matrix-Zonen werden
+  spaltenweise eingefärbt, damit Verläufe auf Tastaturen von links nach rechts laufen. Geräte ohne
+  Per-LED-Modus bekommen die erste Farbe. Vorgefertigte Profile stehen im Code (negative IDs,
+  Namen lokalisiert), eigene in Room (`profiles`, Schema 3).
+* **JSON-Austauschformat** (`JsonProfileCodec`): `format`, `schemaVersion`, `profiles[]` mit
+  `name`, `type`, `layout`, `brightness`, `colors` als Hex. Unbekannte Felder werden ignoriert,
+  eine höhere `schemaVersion` wird abgelehnt, Einträge mit unbekanntem `type` (später: dynamische
+  Profile) werden übersprungen. Import und Export laufen über den System-Dateidialog, die App
+  braucht dafür keine Speicherberechtigung.
 * **Favoriten** liegen in Room (`favorite_colors`, Schema 2 mit Auto-Migration).
 * **Stabile Geräte-Identität:** Unique-IDs (v6) gelten nur für eine Serversitzung, Indizes (v0–5)
   verschieben sich. Profile referenzieren Geräte daher über `serverId + name + location + serial`

@@ -3,6 +3,8 @@ package io.github.openrgbremote.core.domain.testing
 import io.github.openrgbremote.core.domain.model.ColorTarget
 import io.github.openrgbremote.core.domain.model.ConnectionStatus
 import io.github.openrgbremote.core.domain.model.DeviceKey
+import io.github.openrgbremote.core.domain.model.Profile
+import io.github.openrgbremote.core.domain.repository.ProfileRepository
 import io.github.openrgbremote.core.domain.repository.FavoriteColorRepository
 import io.github.openrgbremote.core.domain.repository.LightingRepository
 import io.github.openrgbremote.sdk.model.DeviceMode
@@ -66,7 +68,10 @@ class FakeLightingRepository : LightingRepository {
         return if (targets.isEmpty()) 0 else reachable
     }
 
+    val frames = mutableMapOf<String, IntArray>()
+
     override suspend fun setFrame(key: DeviceKey, colors: IntArray): Boolean {
+        frames[key.name] = colors
         calls += "frame ${key.name} ${colors.size}"
         return true
     }
@@ -87,4 +92,18 @@ class FakeFavoriteColorRepository(initial: List<Int> = emptyList()) : FavoriteCo
     override fun observeFavorites(): Flow<List<Int>> = colors
     override suspend fun add(rgb: Int) = colors.update { listOf(rgb) + (it - rgb) }
     override suspend fun remove(rgb: Int) = colors.update { it - rgb }
+}
+
+class FakeProfileRepository(initial: List<Profile> = emptyList()) : ProfileRepository {
+    val profiles = MutableStateFlow(initial)
+    private var nextId = (initial.maxOfOrNull { it.id } ?: 0) + 1
+
+    override fun observeProfiles(): Flow<List<Profile>> = profiles
+    override suspend fun getProfile(id: Long) = profiles.value.firstOrNull { it.id == id }
+    override suspend fun save(profile: Profile): Long {
+        val id = if (profile.id == 0L) nextId++ else profile.id
+        profiles.update { list -> list.filterNot { it.id == id } + profile.copy(id = id) }
+        return id
+    }
+    override suspend fun delete(id: Long) = profiles.update { list -> list.filterNot { it.id == id } }
 }
