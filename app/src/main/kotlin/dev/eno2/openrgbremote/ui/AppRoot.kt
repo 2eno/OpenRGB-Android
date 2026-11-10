@@ -16,6 +16,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.eno2.openrgbremote.core.domain.repository.SettingsRepository
 import dev.eno2.openrgbremote.feature.onboarding.OnboardingRoute
 import dev.eno2.openrgbremote.ui.navigation.MainNavigation
+import dev.eno2.openrgbremote.ui.navigation.OpenRequest
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -37,14 +38,18 @@ class AppViewModel @Inject constructor(private val settings: SettingsRepository)
 }
 
 @Composable
-fun AppRoot(viewModel: AppViewModel = hiltViewModel()) {
+fun AppRoot(
+    openRequest: OpenRequest? = null,
+    onOpenRequestHandled: () -> Unit = {},
+    viewModel: AppViewModel = hiltViewModel(),
+) {
     val stage by viewModel.stage.collectAsStateWithLifecycle()
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Crossfade(targetState = stage, label = "app-stage") { current ->
             when (current) {
                 AppStage.LOADING -> Box(Modifier.fillMaxSize())
                 AppStage.ONBOARDING -> OnboardingRoute(onFinished = viewModel::completeOnboarding)
-                AppStage.MAIN -> MainNavigation()
+                AppStage.MAIN -> MainNavigation(openRequest, onOpenRequestHandled)
             }
         }
     }

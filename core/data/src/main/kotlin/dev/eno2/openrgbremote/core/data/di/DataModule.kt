@@ -15,11 +15,17 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.eno2.openrgbremote.core.data.connection.AndroidNetworkMonitor
 import dev.eno2.openrgbremote.core.data.connection.ApplicationScope
+import dev.eno2.openrgbremote.core.data.connection.ConnectionKeepAlive
 import dev.eno2.openrgbremote.core.data.connection.ConnectionManager
 import dev.eno2.openrgbremote.core.data.connection.NetworkMonitor
 import dev.eno2.openrgbremote.core.data.db.AppDatabase
 import dev.eno2.openrgbremote.core.data.db.FavoriteColorDao
 import dev.eno2.openrgbremote.core.data.db.ProfileDao
+import dev.eno2.openrgbremote.core.data.db.ScheduleDao
+import dev.eno2.openrgbremote.core.data.repository.RoomScheduleRepository
+import dev.eno2.openrgbremote.core.data.settings.DataStoreQuickActionRepository
+import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
+import dev.eno2.openrgbremote.core.domain.repository.ScheduleRepository
 import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
 import dev.eno2.openrgbremote.core.data.effects.EffectEngine
 import dev.eno2.openrgbremote.core.data.effects.MicrophoneAudioSource
@@ -76,6 +82,8 @@ abstract class DataBindings {
     @Binds abstract fun profileCodec(impl: JsonProfileCodec): ProfileCodec
     @Binds abstract fun effectController(impl: EffectEngine): EffectController
     @Binds abstract fun audioLevelSource(impl: MicrophoneAudioSource): AudioLevelSource
+    @Binds abstract fun quickActionRepository(impl: DataStoreQuickActionRepository): QuickActionRepository
+    @Binds abstract fun scheduleRepository(impl: RoomScheduleRepository): ScheduleRepository
     @Binds abstract fun localNetworkProvider(impl: AndroidLocalNetworkProvider): LocalNetworkProvider
 }
 
@@ -101,6 +109,9 @@ object DataModule {
 
     @Provides
     fun profileDao(db: AppDatabase): ProfileDao = db.profileDao()
+
+    @Provides
+    fun scheduleDao(db: AppDatabase): ScheduleDao = db.scheduleDao()
 
     @Provides fun observeProfiles(profiles: ProfileRepository) = ObserveProfiles(profiles)
     @Provides fun getProfile(profiles: ProfileRepository) = GetProfile(profiles)
@@ -152,6 +163,9 @@ object DataModule {
         @ApplicationScope scope: CoroutineScope,
         config: OpenRgbClientConfig,
     ): ConnectionManager = ConnectionManager(servers, networkMonitor, scope, config)
+
+    @Provides
+    fun keepAlive(connections: ConnectionManager): ConnectionKeepAlive = connections
 
     @Provides
     fun subnetScanner(): SubnetScanner = SubnetScanner(OpenRgbProbe(clientName = "OpenRGB Remote (scan)"))

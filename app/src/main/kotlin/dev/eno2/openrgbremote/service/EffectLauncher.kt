@@ -41,4 +41,6 @@ class ServiceEffectLauncher @Inject constructor(
 @InstallIn(SingletonComponent::class)
 abstract class EffectLauncherModule {
     @Binds abstract fun launcher(impl: ServiceEffectLauncher): EffectLauncher
+
+    @Binds abstract fun alarmCanceller(impl: dev.eno2.openrgbremote.quick.ScheduleAlarms): dev.eno2.openrgbremote.feature.quick.ScheduleAlarmCanceller
 }

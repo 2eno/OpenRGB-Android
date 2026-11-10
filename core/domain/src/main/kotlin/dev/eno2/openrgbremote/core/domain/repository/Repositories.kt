@@ -10,6 +10,8 @@ import dev.eno2.openrgbremote.core.domain.model.ColorTarget
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.ConnectionTestResult
 import dev.eno2.openrgbremote.core.domain.model.Profile
+import dev.eno2.openrgbremote.core.domain.model.QuickAction
+import dev.eno2.openrgbremote.core.domain.model.Schedule
 import dev.eno2.openrgbremote.core.domain.model.ScanUpdate
 import dev.eno2.openrgbremote.core.domain.model.Server
 import dev.eno2.openrgbremote.sdk.model.OpenRgbDevice
@@ -128,4 +130,18 @@ interface EffectController {
 
     /** The configuration last used for [effect] in this process, or its defaults. */
     fun lastConfig(effect: EffectId): EffectConfig
+}
+
+/** The four favorite slots shared by the widget and the Quick Settings tiles. */
+interface QuickActionRepository {
+    /** Always [QuickAction.SLOTS] entries; null for an empty slot. */
+    fun observeSlots(): Flow<List<QuickAction?>>
+    suspend fun setSlot(index: Int, action: QuickAction?)
+}
+
+interface ScheduleRepository {
+    fun observeSchedules(): Flow<List<Schedule>>
+    suspend fun getSchedule(id: Long): Schedule?
+    suspend fun save(schedule: Schedule): Long
+    suspend fun delete(id: Long)
 }

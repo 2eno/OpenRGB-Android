@@ -41,6 +41,11 @@ import java.util.concurrent.atomic.AtomicInteger
  * The decision is recomputed by a single collector whenever the server list, the activity or the
  * manual overrides change, so there is no locking between UI calls and lifecycle events.
  */
+/** Keeps connections open while held, e.g. for a widget action or a running effect. */
+fun interface ConnectionKeepAlive {
+    fun acquireKeepAlive(): Closeable
+}
+
 class ConnectionManager(
     private val servers: ServerRepository,
     private val networkMonitor: NetworkMonitor,
@@ -50,7 +55,7 @@ class ConnectionManager(
     private val transportFactory: TransportFactory = SocketTransport.Factory,
     /** Connections stay open this long after the app went to the background (quick app switches). */
     private val backgroundGraceMillis: Long = 30_000,
-) : ConnectionRepository {
+) : ConnectionRepository, ConnectionKeepAlive {
 
     private data class Overrides(val connect: Set<Long> = emptySet(), val disconnect: Set<Long> = emptySet())
 
@@ -150,7 +155,7 @@ class ConnectionManager(
      * Keeps connections open while the app is in the background, e.g. for a running effect.
      * Close the returned handle to release it.
      */
-    fun acquireKeepAlive(): Closeable {
+    override fun acquireKeepAlive(): Closeable {
         keepAliveCount.update { it + 1 }
         val released = AtomicInteger(0)
         return Closeable { if (released.compareAndSet(0, 1)) keepAliveCount.update { it - 1 } }

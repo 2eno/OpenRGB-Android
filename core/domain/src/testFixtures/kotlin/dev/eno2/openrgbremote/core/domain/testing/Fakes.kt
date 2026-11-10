@@ -17,6 +17,10 @@ import dev.eno2.openrgbremote.sdk.model.DeviceMode
 import dev.eno2.openrgbremote.core.domain.model.ConnectionTestResult
 import dev.eno2.openrgbremote.core.domain.model.ScanUpdate
 import dev.eno2.openrgbremote.core.domain.model.Server
+import dev.eno2.openrgbremote.core.domain.model.QuickAction
+import dev.eno2.openrgbremote.core.domain.model.Schedule
+import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
+import dev.eno2.openrgbremote.core.domain.repository.ScheduleRepository
 import dev.eno2.openrgbremote.core.domain.repository.ConnectionRepository
 import dev.eno2.openrgbremote.core.domain.repository.DiscoveryRepository
 import dev.eno2.openrgbremote.core.domain.repository.ServerRepository
@@ -137,4 +141,23 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
     override suspend fun setOnboardingCompleted(completed: Boolean) = settings.update { it.copy(onboardingCompleted = completed) }
     override suspend fun setSecurityNoticeAccepted(accepted: Boolean) = settings.update { it.copy(securityNoticeAccepted = accepted) }
     override suspend fun setTargetFps(fps: Int) = settings.update { it.copy(targetFps = fps) }
+}
+
+class FakeQuickActionRepository(initial: List<QuickAction?> = List(QuickAction.SLOTS) { null }) : QuickActionRepository {
+    val slots = MutableStateFlow(initial)
+    override fun observeSlots(): Flow<List<QuickAction?>> = slots
+    override suspend fun setSlot(index: Int, action: QuickAction?) = slots.update { list -> list.toMutableList().also { it[index] = action } }
+}
+
+class FakeScheduleRepository(initial: List<Schedule> = emptyList()) : ScheduleRepository {
+    val schedules = MutableStateFlow(initial)
+    private var nextId = (initial.maxOfOrNull { it.id } ?: 0L) + 1
+    override fun observeSchedules(): Flow<List<Schedule>> = schedules
+    override suspend fun getSchedule(id: Long) = schedules.value.firstOrNull { it.id == id }
+    override suspend fun save(schedule: Schedule): Long {
+        val id = if (schedule.id == 0L) nextId++ else schedule.id
+        schedules.update { list -> list.filterNot { it.id == id } + schedule.copy(id = id) }
+        return id
+    }
+    override suspend fun delete(id: Long) = schedules.update { list -> list.filterNot { it.id == id } }
 }

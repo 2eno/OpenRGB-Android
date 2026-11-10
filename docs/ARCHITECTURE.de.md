@@ -33,16 +33,16 @@ OpenRGB-Android/
 │   ├── effects/                 ✅ Kotlin/JVM – Effekt-Renderer, LED-Geometrie, Audio-Analyse (FFT), EffectLoop
 │   ├── data/                    ✅ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Scan, Hilt
 │   └── designsystem/            ✅ Android-Lib – Material-3-Theme, Gerätesymbole, LED-Darstellung und Farbwähler
-├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, Effekte, Service, PCs, Scan, Einstellungen, Onboarding; Widgets/Kacheln ⏳)
+├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, Effekte, Service, PCs, Scan, Einstellungen, Onboarding, Widget, Kacheln, Zeitpläne)
 │   └── src/main/kotlin/dev/eno2/openrgbremote/
 │       ├── feature/onboarding/  Drei-Schritte-Onboarding inkl. Anleitung „SDK-Server starten“
 │       ├── feature/devices/     Geräteübersicht, Detailansicht (Zonen/LEDs), Farbsteuerung
 │       ├── feature/profiles/    Statische und eigene Profile, Import/Export
 │       ├── feature/effects/     Dynamische Effekte und Hardware-Modi
-│       ├── feature/settings/    Server, Scan, Zeitpläne, Sicherheitshinweis, Info
-│       ├── service/             EffectService (Foreground), Zeitplan-Worker
-│       ├── widget/              Glance-Widgets
-│       └── tile/                Quick-Settings-Kacheln
+│       ├── feature/settings/    Server, Scan, Bildrate, Sicherheitshinweis, Info
+│       ├── feature/quick/       Favoriten-Editor, Zeitplan-Liste und -Editor
+│       ├── service/             EffectService (Foreground), EffectLauncher
+│       └── quick/               QuickActionRunner, Glance-Widget, Quick-Settings-Kacheln, Zeitplan-Alarme
 ├── tools/capture_fixtures.py    Schneidet echte Serverpakete als Test-Fixtures mit
 └── docs/ARCHITECTURE.md (+ .de.md)
 ```
@@ -145,9 +145,10 @@ bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag 
 * **Stabile Geräte-Identität:** Unique-IDs (v6) gelten nur für eine Serversitzung, Indizes (v0–5)
   verschieben sich. Profile referenzieren Geräte daher über `serverId + name + location + serial`
   und werden bei jeder Verbindung neu aufgelöst.
-* **Room:** `servers` ✅ (Schema exportiert nach `core/data/schemas`); folgen: `profiles`
-  (Kopfdaten + JSON-Payload, versioniert), `favorite_colors`, `schedules`.
-* **DataStore:** Onboarding-Status ✅; folgen: Ziel-FPS, Haptik, zuletzt aktives Profil.
+* **Room** (Schema 4, exportiert nach `core/data/schemas`, Auto-Migrationen 1→2→3→4): `servers`,
+  `favorite_colors`, `profiles`, `schedules` (Minute des Tages, Wochentags-Bitmaske, Aktion als Text
+  wie `profile:-1` oder `off`; unlesbare Zeilen werden übersprungen statt abzustürzen).
+* **DataStore:** Onboarding-Status, Sicherheitshinweis, Ziel-FPS, die vier Favoriten-Slots.
 * **Profil-Format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, Ziel
   `global | devices[]`, Parameter. Dasselbe Format dient für Import und Export, inklusive `schemaVersion`.
 
@@ -202,17 +203,37 @@ Profile und Effekte kommen als weitere Tabs hinzu, sobald sie umgesetzt sind.
   (1) Sicherheits- und Funktionshinweis, (2) SDK-Server am PC starten (Anleitung), (3) Scan oder manuelle Eingabe.
 * Farbwähler: Farbrad + HSV-Slider + Hex-Eingabe + Favoriten, Live-Vorschau (gedrosselt auf die Ziel-FPS).
 * Barrierefreiheit: `contentDescription`/`stateDescription` für TalkBack, Touch-Ziele ≥ 48 dp,
-  Farbnamen zusätzlich zur Farbe, Kontrast nach WCAG AA, Haptik abschaltbar.
+  Farbnamen zusätzlich zur Farbe, Kontrast nach WCAG AA, Haptik folgt der System-Einstellung für Berührungsfeedback. Die
+  Screenshot-Tests rendern zusätzlich einen Screen mit Schriftgröße 2,0, um abgeschnittenen oder
+  überlappenden Text zu finden.
 * Lokalisierung: `values/strings.xml` (Englisch) und `values-de/strings.xml` (Deutsch).
 
-## 7. Komfortfunktionen (geplant)
+## 7. Komfortfunktionen
 
-* **Foreground-Service** (`EffectService`, Typ `connectedDevice`, bei Musik zusätzlich `microphone`)
+* **Favoriten (Schnellaktionen):** vier Slots (Einstellungen → Favoriten), jeweils ein Profil, ein
+  Effekt oder „Alles aus“. Gespeichert als Text (`profile:<id>`, `effect:<ID>`, `off`) im DataStore.
+* **`QuickActionRunner`** führt eine Aktion auch bei geschlossener App aus: Er holt sich ein
+  `ConnectionKeepAlive` (der `ConnectionManager` verbindet dann wie im Vordergrund), wartet bis zu
+  1,5 s auf den Verbindungsstart und bis zu 7 s, bis kein PC mehr verbindet, führt die Aktion aus und
+  hält die Verbindung 1 s länger offen, damit der letzte Frame ankommt. Bei Kacheln und Widget
+  stoppt ein Tipp auf einen laufenden Effekt ihn wieder.
+* **Widget** (Jetpack Glance, 2×2 Buttons mit Farbstreifen, laufender Effekt hervorgehoben). Der
+  Tipp läuft in einem `ActionCallback`; aktualisiert wird bei jeder Änderung von Slots, Profilen
+  oder Effektstatus.
+* **Quick-Settings-Kacheln:** drei `TileService`s für Slot 1–3, mit dem Aktionsnamen als Label und
+  aktivem Zustand, solange ihr Effekt läuft. Eine leere Kachel öffnet den Favoriten-Editor.
+* **Start im Vordergrund:** Ab Android 12 darf die App den Effekt-Service aus dem Hintergrund nur in
+  Ausnahmefällen starten. Ein Kachel-Klick zählt dazu; verweigert das System trotzdem
+  (`ForegroundServiceStartNotAllowedException`), öffnet sich die App und startet den Effekt dort.
+* **Zeitpläne** (Einstellungen → Zeitpläne): Uhrzeit, Wochentage und Aktion (Profil oder „Alles
+  aus“). Sie nutzen `AlarmManager.setWindow(RTC_WAKEUP)` mit 10-Minuten-Fenster: keine Berechtigung
+  für exakte Alarme nötig, und WorkManager würde die Uhrzeit gar nicht garantieren. Ein
+  `BroadcastReceiver` (`goAsync`) führt die Aktion aus und plant das nächste Vorkommen; nach
+  Neustart, Uhrzeit- oder Zeitzonenwechsel und App-Update werden alle Alarme neu aufgebaut. Der
+  nächste Auslösezeitpunkt wird mit `ZonedDateTime` berechnet, Sommerzeit-Lücken verschieben die
+  Zeit auf die nächste gültige Minute.
+* **Effekt-Service** (`EffectService`, Typ `connectedDevice`, bei Musik zusätzlich `microphone`)
   für laufende dynamische Effekte, mit Benachrichtigung inklusive Stopp-Aktion.
-* **Widgets** (Jetpack Glance) für Lieblingsprofile; **Quick-Settings-Kacheln** (`TileService`), drei
-  frei belegbare Slots.
-* **Zeitpläne** über WorkManager. Die Ausführung ist unpräzise (±einige Minuten), dafür ist keine
-  Berechtigung für exakte Alarme nötig.
 
 ## 8. Sicherheit
 
@@ -254,6 +275,13 @@ eine Network-Security-Config ist daher nicht nötig.
   Xiaomi-/Huawei-Geräte) können auch Foreground-Services drosseln. Dann muss die App in den
   Akku-Einstellungen von der Optimierung ausgenommen werden.
 * **Effekte in Profilen:** Das JSON-Format kennt bisher nur statische Profile. Effekt-Einstellungen
-  merkt sich die App nur bis zum Neustart.
+  merkt sich die App nur bis zum Neustart; ein Favoriten-Effekt startet danach mit den
+  Standardwerten.
+* **Zeitpläne sind nicht exakt:** Android kann sie zum Stromsparen (Doze) um bis zu 10 Minuten
+  verzögern. Effekte können sie nicht starten: Aus einem Alarm im Hintergrund darf kein
+  Foreground-Service starten, und ein Effekt hielte das Handy die ganze Nacht wach. Stattdessen
+  „Alles aus“ oder ein Profil verwenden.
+* **Widget und Kacheln** brauchen einen PC, der in etwa 8 s erreichbar ist; sonst melden sie das per
+  kurzem Toast (wie auch ein gelöschtes Profil). Manche Launcher aktualisieren das Widget erst mit kurzer Verzögerung.
 * **Mehrere Clients gleichzeitig** (z. B. OpenRGB-GUI-Effekte und die App): Es gilt
   „der letzte Schreiber gewinnt“. Laufende Effekte anderer Clients überschreiben die App.

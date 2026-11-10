@@ -19,7 +19,7 @@ It controls RGB lighting on PCs in your network that run OpenRGB with the SDK se
 | 2c. Color control (color wheel, HSV, hex, favorites, targets, live preview) and hardware modes | ✅ |
 | 2d. Profiles (8 presets, custom, duplicate, JSON import/export, global or per device) | ✅ |
 | 2e. Effects engine (8 effects incl. music), foreground service, Effects tab | ✅ |
-| 2f. UI polish, widgets, tiles | ⏳ |
+| 2f. Favorites widget, 3 quick settings tiles, schedules, accessibility check | ✅ |
 
 ## Screenshots
 
@@ -42,6 +42,10 @@ because debug devices report all LEDs as black. The screenshots show the German 
 | Effects | Effect settings |
 |---|---|
 | ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
+
+| Favorites (widget & tiles) | Schedules | Schedule editor | Large font (200 %) |
+|---|---|---|---|
+| ![](docs/screenshots/quick_actions_de.png) | ![](docs/screenshots/schedules_de.png) | ![](docs/screenshots/schedule_edit_de.png) | ![](docs/screenshots/quick_actions_en_large_font.png) |
 
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 

@@ -33,16 +33,16 @@ OpenRGB-Android/
 │   ├── effects/                 ✅ Kotlin/JVM – effect renderers, LED geometry, audio analysis (FFT), EffectLoop
 │   ├── data/                    ✅ Android lib – Room, DataStore, ConnectionManager (multiple PCs), scan, Hilt
 │   └── designsystem/            ✅ Android lib – Material 3 theme, device icons, LED rendering and color picker
-├── app/                         ✅ Android app (devices, detail, color, modes, profiles, effects, service, PCs, scan, settings, onboarding; widgets/tiles ⏳)
+├── app/                         ✅ Android app (devices, detail, color, modes, profiles, effects, service, PCs, scan, settings, onboarding, widget, tiles, schedules)
 │   └── src/main/kotlin/dev/eno2/openrgbremote/
 │       ├── feature/onboarding/  three-step onboarding incl. “start the SDK server” guide
 │       ├── feature/devices/     device overview, detail view (zones/LEDs), color control
 │       ├── feature/profiles/    static and custom profiles, import/export
 │       ├── feature/effects/     dynamic effects and hardware modes
-│       ├── feature/settings/    servers, scan, schedules, security notice, about
-│       ├── service/             EffectService (foreground), schedule worker
-│       ├── widget/              Glance widgets
-│       └── tile/                quick settings tiles
+│       ├── feature/settings/    servers, scan, frame rate, security notice, about
+│       ├── feature/quick/       favorites editor, schedule list and editor
+│       ├── service/             EffectService (foreground), EffectLauncher
+│       └── quick/               QuickActionRunner, Glance widget, quick settings tiles, schedule alarms
 ├── tools/capture_fixtures.py    captures real server packets as test fixtures
 └── docs/ARCHITECTURE.md (+ .de.md)
 ```
@@ -143,9 +143,10 @@ concrete suggestion.
 * **Stable device identity:** unique IDs (v6) are only valid for one server session, indices
   (v0–5) shift. Profiles therefore reference devices by `serverId + name + location + serial` and
   are resolved again on every connection.
-* **Room:** `servers` ✅ (schema exported to `core/data/schemas`); to follow: `profiles`
-  (header data + JSON payload, versioned), `favorite_colors`, `schedules`.
-* **DataStore:** onboarding state ✅; to follow: target FPS, haptics, last active profile.
+* **Room** (schema 4, exported to `core/data/schemas`, auto-migrations 1→2→3→4): `servers`,
+  `favorite_colors`, `profiles`, `schedules` (minute of day, weekday bitmask, action as text such as
+  `profile:-1` or `off`; unreadable rows are skipped instead of crashing).
+* **DataStore:** onboarding state, security notice, target FPS, the four favorite slots.
 * **Profile format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, target
   `global | devices[]`, parameters. The same format is used for import and export, including
   `schemaVersion`.
@@ -203,17 +204,35 @@ are added as further tabs once they are implemented.
 * Color picker: color wheel + HSV sliders + hex input + favorites, live preview (throttled to the
   target FPS).
 * Accessibility: `contentDescription`/`stateDescription` for TalkBack, touch targets ≥ 48 dp,
-  color names in addition to the color, WCAG AA contrast, haptics can be turned off.
+  color names in addition to the color, WCAG AA contrast, haptics follow the system’s touch feedback setting. The screenshot tests also
+  render a screen at font scale 2.0 to catch clipped or overlapping text.
 * Localization: `values/strings.xml` (English) and `values-de/strings.xml` (German).
 
-## 7. Convenience features (planned)
+## 7. Convenience features
 
-* **Foreground service** (`EffectService`, type `connectedDevice`, additionally `microphone` for
+* **Favorites (quick actions):** four slots (Settings → Favorites), each a profile, an effect or
+  “All off”. Stored as text (`profile:<id>`, `effect:<ID>`, `off`) in DataStore.
+* **`QuickActionRunner`** executes an action even when the app is closed: it takes a
+  `ConnectionKeepAlive` (the `ConnectionManager` then connects as if the app were in the
+  foreground), waits up to 1.5 s for the connections to start and up to 7 s until no PC is still
+  connecting, applies the action and keeps the connection open for 1 s more so the last frame
+  arrives. On tiles and the widget, tapping a running effect stops it again.
+* **Widget** (Jetpack Glance, 2×2 buttons with a color strip, the running effect highlighted). Its
+  tap runs in an `ActionCallback`; it is refreshed whenever slots, profiles or the effect state
+  change.
+* **Quick settings tiles:** three `TileService`s for slots 1–3, with the action name as label and
+  active state while their effect runs. An empty tile opens the favorites editor.
+* **Foreground start:** Android 12+ only lets the app start the effect service from the background
+  in exempt situations. A tile click counts as such; if the system still refuses
+  (`ForegroundServiceStartNotAllowedException`), the app is opened and starts the effect there.
+* **Schedules** (Settings → Schedules): time, weekdays and action (profile or “All off”). They use
+  `AlarmManager.setWindow(RTC_WAKEUP)` with a 10-minute window: no exact-alarm permission is
+  needed, and WorkManager would not guarantee the time of day at all. A `BroadcastReceiver`
+  (`goAsync`) runs the action and schedules the next occurrence; after a reboot, time or time zone
+  change, or an app update, all alarms are rebuilt. The next trigger is computed with
+  `ZonedDateTime`, so daylight saving gaps shift the time to the next valid minute.
+* **Effect service** (`EffectService`, type `connectedDevice`, additionally `microphone` for
   music) for running dynamic effects, with a notification including a stop action.
-* **Widgets** (Jetpack Glance) for favorite profiles; **quick settings tiles** (`TileService`),
-  three freely assignable slots.
-* **Schedules** via WorkManager. Execution is imprecise (± a few minutes), but no exact-alarm
-  permission is needed.
 
 ## 8. Security
 
@@ -255,6 +274,12 @@ needed.
   Xiaomi/Huawei devices) can throttle foreground services too. Then the app has to be excluded
   from optimization in the battery settings.
 * **Effects in profiles:** the JSON format only knows static profiles so far. The app only
-  remembers effect settings until it restarts.
+  remembers effect settings until it restarts; a favorite effect after a restart starts with the
+  default settings.
+* **Schedules are not exact:** Android may delay them by up to 10 minutes to save power (Doze).
+  They cannot start effects: a foreground service may not be started from an alarm in the
+  background, and an effect would keep the phone awake all night. Use “All off” or a profile.
+* **Widget and tiles** need the PC to be reachable within about 8 s; otherwise they report it in a
+  short toast (as they do for a deleted profile). Some launchers only refresh the widget after a short delay.
 * **Multiple clients at the same time** (e.g. OpenRGB GUI effects and the app): “last writer
   wins”. Running effects of other clients overwrite the app.

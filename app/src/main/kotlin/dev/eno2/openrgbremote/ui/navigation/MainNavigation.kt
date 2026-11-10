@@ -14,6 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -33,6 +34,9 @@ import dev.eno2.openrgbremote.feature.devices.DevicesRoute as DevicesScreenRoute
 import dev.eno2.openrgbremote.feature.profiles.ProfileEditRoute as ProfileEditScreenRoute
 import dev.eno2.openrgbremote.feature.profiles.ProfilesRoute as ProfilesScreenRoute
 import dev.eno2.openrgbremote.feature.servers.ScanRoute as ScanScreenRoute
+import dev.eno2.openrgbremote.feature.quick.QuickActionsRoute as QuickActionsScreenRoute
+import dev.eno2.openrgbremote.feature.quick.ScheduleEditRoute as ScheduleEditScreenRoute
+import dev.eno2.openrgbremote.feature.quick.SchedulesRoute as SchedulesScreenRoute
 import dev.eno2.openrgbremote.feature.servers.ServerEditRoute as ServerEditScreenRoute
 import dev.eno2.openrgbremote.feature.servers.ServersRoute as ServersScreenRoute
 import dev.eno2.openrgbremote.feature.settings.SettingsRoute as SettingsScreenRoute
@@ -62,8 +66,15 @@ private fun NavDestination?.topLevel(): TopLevel? = when {
  * (handled by [NavigationSuiteScaffold] based on the window size class).
  */
 @Composable
-fun MainNavigation() {
+fun MainNavigation(openRequest: OpenRequest? = null, onOpenRequestHandled: () -> Unit = {}) {
     val navController = rememberNavController()
+    LaunchedEffect(openRequest) {
+        when (openRequest) {
+            OpenRequest.FAVORITES -> navController.navigate(QuickActionsRoute) { launchSingleTop = true }
+            null -> return@LaunchedEffect
+        }
+        onOpenRequestHandled()
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val current = backStackEntry?.destination.topLevel()
 
@@ -126,7 +137,20 @@ fun MainNavigation() {
                 EffectSettingsScreenRoute(onBack = navController::navigateUp)
             }
             composable<SettingsRoute> {
-                SettingsScreenRoute(onOpenServers = { navController.navigate(ServersRoute) })
+                SettingsScreenRoute(
+                    onOpenServers = { navController.navigate(ServersRoute) },
+                    onOpenFavorites = { navController.navigate(QuickActionsRoute) },
+                    onOpenSchedules = { navController.navigate(SchedulesRoute) },
+                )
+            }
+            composable<QuickActionsRoute> {
+                QuickActionsScreenRoute(onBack = navController::navigateUp)
+            }
+            composable<SchedulesRoute> {
+                SchedulesScreenRoute(onBack = navController::navigateUp, onEdit = { id -> navController.navigate(ScheduleEditRoute(id)) })
+            }
+            composable<ScheduleEditRoute> {
+                ScheduleEditScreenRoute(onDone = navController::navigateUp)
             }
             composable<ServersRoute> {
                 ServersScreenRoute(

@@ -33,3 +33,13 @@ import kotlinx.serialization.Serializable
 
 /** [effect] is an [dev.eno2.openrgbremote.core.effects.EffectId] name. */
 @Serializable data class EffectSettingsRoute(val effect: String)
+
+@Serializable data object QuickActionsRoute
+
+@Serializable data object SchedulesRoute
+
+/** [scheduleId] 0 creates a new schedule. */
+@Serializable data class ScheduleEditRoute(val scheduleId: Long = 0)
+
+/** Screens other parts of the system (widget, tiles) can ask the app to open. */
+enum class OpenRequest { FAVORITES }

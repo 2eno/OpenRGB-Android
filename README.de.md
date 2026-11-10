@@ -19,7 +19,7 @@ läuft (Standardport **6742**).
 | 2c. Farbsteuerung (Farbrad, HSV, Hex, Favoriten, Ziele, Live-Vorschau) und Hardware-Modi | ✅ |
 | 2d. Profile (8 vorgefertigte, eigene, Duplizieren, JSON-Import/-Export, global oder pro Gerät) | ✅ |
 | 2e. Effekt-Engine (8 Effekte inkl. Musik), Foreground-Service, Effekte-Tab | ✅ |
-| 2f. UI-Feinschliff, Widgets, Kacheln | ⏳ |
+| 2f. Favoriten-Widget, 3 Schnelleinstellungs-Kacheln, Zeitpläne, Barrierefreiheits-Prüfung | ✅ |
 
 ## Screenshots
 
@@ -42,6 +42,10 @@ weil Debug-Geräte alle LEDs als schwarz melden.
 | Effekte | Effekt-Einstellungen |
 |---|---|
 | ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
+
+| Favoriten (Widget & Kacheln) | Zeitpläne | Zeitplan-Editor | Große Schrift (200 %) |
+|---|---|---|---|
+| ![](docs/screenshots/quick_actions_de.png) | ![](docs/screenshots/schedules_de.png) | ![](docs/screenshots/schedule_edit_de.png) | ![](docs/screenshots/quick_actions_en_large_font.png) |
 
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 

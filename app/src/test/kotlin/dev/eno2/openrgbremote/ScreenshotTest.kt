@@ -1,5 +1,17 @@
 package dev.eno2.openrgbremote
 
+import dev.eno2.openrgbremote.core.domain.model.QuickAction
+import dev.eno2.openrgbremote.core.domain.model.Schedule
+import dev.eno2.openrgbremote.feature.quick.QuickActionsScreen
+import dev.eno2.openrgbremote.feature.quick.QuickActionsUiState
+import dev.eno2.openrgbremote.feature.quick.SchedulesScreen
+import dev.eno2.openrgbremote.feature.quick.SchedulesUiState
+import dev.eno2.openrgbremote.feature.quick.ScheduleEditScreen
+import dev.eno2.openrgbremote.feature.quick.ScheduleEditUiState
+import dev.eno2.openrgbremote.feature.quick.ScheduleEditActions
+import java.time.DayOfWeek
+import dev.eno2.openrgbremote.feature.settings.SettingsScreen
+import java.time.LocalTime
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -320,5 +332,54 @@ class ScreenshotTest {
             MicrophoneState.NEEDS_PERMISSION,
             EffectSettingsActions(),
         )
+    }
+
+    private val allProfiles get() = customProfiles + BuiltInProfiles.all
+
+    private val slots = listOf(
+        QuickAction.ApplyProfile(BuiltInProfiles.all.first { it.presetKey == "ocean" }.id),
+        QuickAction.StartEffect(EffectId.RAINBOW_WAVE),
+        QuickAction.Off,
+        null,
+    )
+
+    @Test
+    fun quick_actions_de() = capture("quick_actions_de", "de-w411dp-h1000dp-xxhdpi") {
+        QuickActionsScreen(QuickActionsUiState(slots, allProfiles), onBack = {}, onSetSlot = { _, _ -> })
+    }
+
+    /** Accessibility check: the largest system font scale must not clip or overlap. */
+    @Test
+    fun quick_actions_en_large_font() {
+        RuntimeEnvironment.setFontScale(2f)
+        capture("quick_actions_en_large_font", "en-w411dp-h1400dp-xxhdpi") {
+            QuickActionsScreen(QuickActionsUiState(slots, allProfiles), onBack = {}, onSetSlot = { _, _ -> })
+        }
+    }
+
+    private val schedules = listOf(
+        Schedule(1, LocalTime.of(7, 0), DayOfWeek.entries.take(5).toSet(), QuickAction.ApplyProfile(BuiltInProfiles.all.first { it.presetKey == "warm_white" }.id)),
+        Schedule(2, LocalTime.of(23, 30), DayOfWeek.entries.toSet(), QuickAction.Off),
+        Schedule(3, LocalTime.of(10, 0), setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY), QuickAction.ApplyProfile(1), enabled = false),
+    )
+
+    @Test
+    fun schedules_de() = capture("schedules_de", "+de") {
+        SchedulesScreen(SchedulesUiState(false, schedules, allProfiles), onBack = {}, onEdit = {}, onEnabled = { _, _ -> })
+    }
+
+    @Test
+    fun schedule_edit_de() = capture("schedule_edit_de", "+de") {
+        ScheduleEditScreen(ScheduleEditUiState(schedules[0], allProfiles), ScheduleEditActions())
+    }
+
+    @Test
+    fun schedule_edit_en_dark() = capture("schedule_edit_en_dark", "en-night", dark = true) {
+        ScheduleEditScreen(ScheduleEditUiState(schedules[1].copy(days = emptySet()), allProfiles, daysError = true), ScheduleEditActions())
+    }
+
+    @Test
+    fun settings_de() = capture("settings_de", "de-w411dp-h1000dp-xxhdpi") {
+        SettingsScreen(serverCount = 2, onOpenServers = {}, onShowOnboarding = {})
     }
 }

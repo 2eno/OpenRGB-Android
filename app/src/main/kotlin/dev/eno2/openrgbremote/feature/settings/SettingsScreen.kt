@@ -15,7 +15,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Replay
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,10 +77,15 @@ class SettingsViewModel @Inject constructor(
 }
 
 @Composable
-fun SettingsRoute(onOpenServers: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsRoute(
+    onOpenServers: () -> Unit,
+    onOpenFavorites: () -> Unit = {},
+    onOpenSchedules: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
     val count by viewModel.serverCount.collectAsStateWithLifecycle()
     val fps by viewModel.targetFps.collectAsStateWithLifecycle()
-    SettingsScreen(count, onOpenServers, viewModel::showOnboardingAgain, fps, viewModel::setTargetFps)
+    SettingsScreen(count, onOpenServers, viewModel::showOnboardingAgain, fps, viewModel::setTargetFps, onOpenFavorites, onOpenSchedules)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,6 +96,8 @@ fun SettingsScreen(
     onShowOnboarding: () -> Unit,
     targetFps: Int = EffectFrameRates.DEFAULT,
     onTargetFps: (Int) -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
+    onOpenSchedules: () -> Unit = {},
 ) {
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_settings)) }) }) { padding ->
         Column(
@@ -104,6 +113,26 @@ fun SettingsScreen(
                         leadingContent = { Icon(Icons.Outlined.Computer, contentDescription = null) },
                         headlineContent = { Text(stringResource(R.string.settings_servers)) },
                         supportingContent = { Text(pluralStringResource(R.plurals.servers_saved, serverCount, serverCount)) },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                    )
+                }
+
+                SectionHeader(stringResource(R.string.settings_section_convenience))
+                SettingsCard {
+                    ListItem(
+                        colors = transparentListItem(),
+                        modifier = Modifier.clickable(onClick = onOpenFavorites),
+                        leadingContent = { Icon(Icons.Outlined.Widgets, contentDescription = null) },
+                        headlineContent = { Text(stringResource(R.string.quick_title)) },
+                        supportingContent = { Text(stringResource(R.string.quick_summary)) },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+                    )
+                    ListItem(
+                        colors = transparentListItem(),
+                        modifier = Modifier.clickable(onClick = onOpenSchedules),
+                        leadingContent = { Icon(Icons.Outlined.Schedule, contentDescription = null) },
+                        headlineContent = { Text(stringResource(R.string.schedules_title)) },
+                        supportingContent = { Text(stringResource(R.string.schedules_summary)) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
                     )
                 }

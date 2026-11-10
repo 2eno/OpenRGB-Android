@@ -19,19 +19,23 @@ import dev.eno2.openrgbremote.core.domain.model.ColorLayout
 import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.model.ProfileRenderer
 
+/** String resource of a preset's localized name, null for unknown keys. */
+fun presetNameRes(presetKey: String): Int? = when (presetKey) {
+    "ocean" -> R.string.profile_preset_ocean
+    "sunset" -> R.string.profile_preset_sunset
+    "cyberpunk" -> R.string.profile_preset_cyberpunk
+    "forest" -> R.string.profile_preset_forest
+    "gaming_red" -> R.string.profile_preset_gaming_red
+    "warm_white" -> R.string.profile_preset_warm_white
+    "night" -> R.string.profile_preset_night
+    "off" -> R.string.profile_preset_off
+    else -> null
+}
+
 /** Localized name: presets are translated, custom profiles keep the name the user gave them. */
 @Composable
-fun profileDisplayName(profile: Profile): String = when (profile.presetKey) {
-    "ocean" -> stringResource(R.string.profile_preset_ocean)
-    "sunset" -> stringResource(R.string.profile_preset_sunset)
-    "cyberpunk" -> stringResource(R.string.profile_preset_cyberpunk)
-    "forest" -> stringResource(R.string.profile_preset_forest)
-    "gaming_red" -> stringResource(R.string.profile_preset_gaming_red)
-    "warm_white" -> stringResource(R.string.profile_preset_warm_white)
-    "night" -> stringResource(R.string.profile_preset_night)
-    "off" -> stringResource(R.string.profile_preset_off)
-    else -> profile.name
-}
+fun profileDisplayName(profile: Profile): String =
+    profile.presetKey?.let { presetNameRes(it) }?.let { stringResource(it) } ?: profile.name
 
 /**
  * Strip rendered with the same [ProfileRenderer] that colors the devices, so what the card
