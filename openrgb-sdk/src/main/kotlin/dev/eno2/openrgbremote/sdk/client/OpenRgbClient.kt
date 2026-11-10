@@ -538,9 +538,14 @@ public class OpenRgbClient(
         } catch (e: Throwable) {
             val error = ConnectionError(ConnectionErrorReason.CONNECTION_LOST, e.message ?: "Send failed", e)
             shutdown(error)
-            throw OpenRgbException(error)
+            // If the reader already closed the connection for a more specific reason (e.g. "not an
+            // OpenRGB server"), this write failure is only a consequence: report the original cause.
+            throw OpenRgbException(firstError() ?: error)
         }
     }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private fun firstError(): ConnectionError? = if (closedSignal.isCompleted) closedSignal.getCompleted() else null
 
     private fun ensureConnected() {
         if (lifecycle.get() != Lifecycle.CONNECTED) {
