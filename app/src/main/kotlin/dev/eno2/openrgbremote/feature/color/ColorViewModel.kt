@@ -8,6 +8,7 @@ import dev.eno2.openrgbremote.core.domain.model.ColorTarget
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.HsvColor
 import dev.eno2.openrgbremote.core.domain.model.RemoteDevice
+import dev.eno2.openrgbremote.core.domain.repository.EffectController
 import dev.eno2.openrgbremote.core.domain.repository.FavoriteColorRepository
 import dev.eno2.openrgbremote.core.domain.repository.LightingRepository
 import dev.eno2.openrgbremote.core.domain.usecase.ObserveServerOverviews
@@ -65,6 +66,7 @@ class ColorViewModel @Inject constructor(
     observeServerOverviews: ObserveServerOverviews,
     private val lighting: LightingRepository,
     private val favoriteColors: FavoriteColorRepository,
+    private val effects: EffectController,
 ) : ViewModel() {
 
     private data class Local(
@@ -169,6 +171,7 @@ class ColorViewModel @Inject constructor(
 
     /** Restores the colors the devices had before the first change on this screen. */
     fun undo() {
+        effects.stop()
         val frames = snapshot.toMap()
         snapshot.clear()
         local.update { it.copy(canUndo = false) }
@@ -201,6 +204,8 @@ class ColorViewModel @Inject constructor(
             val device = latestDevices.firstOrNull { it.key == target.key }?.device ?: continue
             if (device.ledCount > 0 && device.directModeIndex() != null) snapshot.getOrPut(target.key) { device.colors.toIntArray() }
         }
+        // A running effect would paint over the chosen color with its next frame.
+        effects.stop()
         val rgb = l.color.toRgb()
         viewModelScope.launch {
             val reached = lighting.setColor(targets, rgb, preview)

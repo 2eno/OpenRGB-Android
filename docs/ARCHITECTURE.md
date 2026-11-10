@@ -30,10 +30,10 @@ OpenRGB-Android/
 │       └── discovery/           Ipv4Subnet, OpenRgbProbe, SubnetScanner
 ├── core/
 │   ├── domain/                  ✅ Kotlin/JVM – server, status, DeviceKey, repository interfaces, use cases
-│   ├── effects/                 ⏳ Kotlin/JVM – effect renderers, LED geometry, EffectRunner (clock)
+│   ├── effects/                 ✅ Kotlin/JVM – effect renderers, LED geometry, audio analysis (FFT), EffectLoop
 │   ├── data/                    ✅ Android lib – Room, DataStore, ConnectionManager (multiple PCs), scan, Hilt
 │   └── designsystem/            ✅ Android lib – Material 3 theme, device icons, LED rendering and color picker
-├── app/                         ✅ Android app (devices, detail, color, modes, profiles, PCs, scan, settings, onboarding; rest ⏳)
+├── app/                         ✅ Android app (devices, detail, color, modes, profiles, effects, service, PCs, scan, settings, onboarding; widgets/tiles ⏳)
 │   └── src/main/kotlin/dev/eno2/openrgbremote/
 │       ├── feature/onboarding/  three-step onboarding incl. “start the SDK server” guide
 │       ├── feature/devices/     device overview, detail view (zones/LEDs), color control
@@ -150,18 +150,44 @@ concrete suggestion.
   `global | devices[]`, parameters. The same format is used for import and export, including
   `schemaVersion`.
 
-## 5. Effects engine (planned, `:core:effects`)
+## 5. Effects engine (`:core:effects`)
 
-* `Effect.render(t: Double, layout: LedLayout, params: EffectParams, out: IntArray)` as a pure
-  function.
-* `LedLayout`: normalized LED positions (linear: 0..1, matrix: x/y from the matrix map), so that
-  wave, aurora and fire run two-dimensionally on keyboards.
-* `EffectRunner`: `ticker` with a target FPS (30/45/60), frame budget measurement, adaptive FPS
-  reduction under load, output through `LedFrameStreamer` per device.
-* Effects: rainbow wave, color cycle, breathing, fire, aurora, pulse, gradient flow, music-reactive
-  (`AudioRecord` + FFT; only after the runtime permission, foreground service type `microphone`).
-* The device’s hardware modes (`UpdateMode`) run on the controller without network load and are
-  the recommended way if the phone shouldn’t stream permanently.
+* **Renderer** (`EffectRenderer`): pure function `(effect, effect time, LedLayout, parameters,
+  AudioLevels) → colors`. The same inputs always give the same colors; the animated preview in
+  the app uses the same code as the devices. Noise is deterministic (value noise), so fire and
+  aurora need no state.
+* **Effect time** instead of wall-clock time: the loop adds `Δt × speed`. If you change the speed
+  while an effect is running, the animation continues smoothly instead of jumping.
+* **`LedLayout`**: normalized position of every LED. Each zone on its own 0..1 (as with profiles),
+  matrix zones with x/y from the matrix map. On keyboards fire burns from the bottom and the music
+  effect becomes a bar chart.
+* **Effects:** rainbow wave, color cycle, breathing, fire, aurora, pulse, gradient flow and music.
+  Adjustable: speed (0.25–3×), direction (where visible), colors (up to 8) and brightness.
+* **`EffectLoop`**: frame clock with a target FPS (30/45/60, setting). If rendering falls behind,
+  ticks are skipped instead of caught up. Backpressure is handled by the conflating
+  `LedFrameStreamer` per device (with an ACK window from protocol 6). Actual FPS and render time
+  are measured.
+* **`AudioAnalyzer`**: Hann window, FFT (1024, 50 % overlap), 16 logarithmic bands from
+  40 Hz to 12 kHz, normalized to 0 dBFS, automatic gain with a lower limit, noise gate at
+  −62 dBFS and attack/release smoothing.
+
+### Execution (`EffectEngine`, `EffectService`)
+
+* `EffectEngine` (data layer) connects the loop to all connected devices with a
+  per-LED mode. Targets are only rebuilt when the **structure** changes (a device
+  comes/goes, a zone changes its size), not on every reported frame.
+* Starting again while an effect is running takes over effect, parameters and targets without a restart.
+* While an effect is running, the engine holds a **keep-alive** on the `ConnectionManager`: the
+  connections stay open in the background too.
+* The microphone is only recorded while the music effect is running. The audio data never leaves
+  the device; the effect only receives 16 level values.
+* **Manual control ends the effect:** setting a color, applying a profile or choosing a hardware
+  mode stops it. Otherwise the next frame would overwrite the change immediately.
+* `EffectService` (foreground service, type `connectedDevice`, with the microphone additionally
+  `microphone`) keeps the process alive and shows the notification with “Stop”. It only follows
+  the engine’s state and stops itself as soon as the effect ends.
+* **Hardware effects** of the devices (`UpdateMode`) run on the controller without the phone and
+  without network load. The Effects tab points to them.
 
 ## 6. Presentation
 
@@ -222,5 +248,13 @@ needed.
   devices without a per-LED mode. Single LEDs can only be reached by tapping; TalkBack users
   control devices and zones. Diagonal mode directions (protocol 6 only) are shown but not offered
   for selection.
+* **Music effect:** Android only allows the microphone, not listening to other apps (that would
+  only work with screen-capture consent). So the effect reacts to the sound in the room; the
+  latency is about 30–60 ms (analysis window) plus network.
+* **Effects in the background:** manufacturers with aggressive power saving (e.g. some
+  Xiaomi/Huawei devices) can throttle foreground services too. Then the app has to be excluded
+  from optimization in the battery settings.
+* **Effects in profiles:** the JSON format only knows static profiles so far. The app only
+  remembers effect settings until it restarts.
 * **Multiple clients at the same time** (e.g. OpenRGB GUI effects and the app): “last writer
   wins”. Running effects of other clients overwrite the app.

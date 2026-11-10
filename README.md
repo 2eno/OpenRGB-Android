@@ -18,7 +18,7 @@ It controls RGB lighting on PCs in your network that run OpenRGB with the SDK se
 | 2b. Connections, network scan, device list, detail view, onboarding (app) | ✅ |
 | 2c. Color control (color wheel, HSV, hex, favorites, targets, live preview) and hardware modes | ✅ |
 | 2d. Profiles (8 presets, custom, duplicate, JSON import/export, global or per device) | ✅ |
-| 2e. Effects engine | ⏳ |
+| 2e. Effects engine (8 effects incl. music), foreground service, Effects tab | ✅ |
 | 2f. UI polish, widgets, tiles | ⏳ |
 
 ## Screenshots
@@ -38,6 +38,10 @@ because debug devices report all LEDs as black. The screenshots show the German 
 | Profiles | Profile editor |
 |---|---|
 | ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) |
+
+| Effects | Effect settings |
+|---|---|
+| ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
 
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 

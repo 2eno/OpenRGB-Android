@@ -5,6 +5,7 @@ import dev.eno2.openrgbremote.core.domain.model.ColorTarget
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.model.ProfileRenderer
+import dev.eno2.openrgbremote.core.domain.repository.EffectController
 import dev.eno2.openrgbremote.core.domain.repository.LightingRepository
 import dev.eno2.openrgbremote.core.domain.repository.ProfileCodec
 import dev.eno2.openrgbremote.core.domain.repository.ProfileDecodeResult
@@ -32,8 +33,11 @@ class GetProfile(private val profiles: ProfileRepository) {
 class ApplyProfile(
     private val overviews: ObserveServerOverviews,
     private val lighting: LightingRepository,
+    private val effects: EffectController,
 ) {
     suspend operator fun invoke(profile: Profile, only: Set<DeviceKey>? = null): Int {
+        // A running effect would paint over the profile with its next frame.
+        effects.stop()
         val devices = overviews().first().flatMap { it.devices }.filter { only == null || it.key in only }
         var reached = 0
         for (remote in devices) {

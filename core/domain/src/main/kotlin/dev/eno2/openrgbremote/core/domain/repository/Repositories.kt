@@ -1,6 +1,9 @@
 package dev.eno2.openrgbremote.core.domain.repository
 
 import dev.eno2.openrgbremote.core.domain.model.AppSettings
+import dev.eno2.openrgbremote.core.domain.model.EffectConfig
+import dev.eno2.openrgbremote.core.domain.model.EffectState
+import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.sdk.model.DeviceMode
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.ColorTarget
@@ -55,6 +58,7 @@ interface SettingsRepository {
     val settings: Flow<AppSettings>
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setSecurityNoticeAccepted(accepted: Boolean)
+    suspend fun setTargetFps(fps: Int)
 }
 
 /** Changes colors and modes on connected devices. All calls are no-ops for unreachable devices. */
@@ -108,4 +112,20 @@ interface ProfileCodec {
 sealed interface ProfileDecodeResult {
     data class Success(val profiles: List<Profile>) : ProfileDecodeResult
     data class Failure(val error: ProfileImportError) : ProfileDecodeResult
+}
+
+/**
+ * Runs one app-rendered effect at a time. Starting another effect, or starting the same one with
+ * new parameters, takes over seamlessly (the animation does not restart).
+ */
+interface EffectController {
+    val state: StateFlow<EffectState>
+
+    fun start(config: EffectConfig)
+
+    /** Stops the effect; the devices keep their last frame. */
+    fun stop()
+
+    /** The configuration last used for [effect] in this process, or its defaults. */
+    fun lastConfig(effect: EffectId): EffectConfig
 }

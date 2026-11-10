@@ -1,6 +1,12 @@
 package dev.eno2.openrgbremote.core.domain.testing
 
+import dev.eno2.openrgbremote.core.domain.model.AppSettings
 import dev.eno2.openrgbremote.core.domain.model.ColorTarget
+import dev.eno2.openrgbremote.core.domain.model.EffectConfig
+import dev.eno2.openrgbremote.core.domain.model.EffectState
+import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.repository.SettingsRepository
+import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.Profile
@@ -106,4 +112,29 @@ class FakeProfileRepository(initial: List<Profile> = emptyList()) : ProfileRepos
         return id
     }
     override suspend fun delete(id: Long) = profiles.update { list -> list.filterNot { it.id == id } }
+}
+
+class FakeEffectController : EffectController {
+    override val state = MutableStateFlow<EffectState>(EffectState.Idle)
+    val calls = mutableListOf<String>()
+
+    override fun start(config: EffectConfig) {
+        calls += "start ${config.effect} speed=${config.params.speed} targets=${config.targets?.map { it.name }?.sorted()}"
+        state.value = EffectState.Running(config)
+    }
+
+    override fun stop() {
+        calls += "stop"
+        state.value = EffectState.Idle
+    }
+
+    override fun lastConfig(effect: EffectId): EffectConfig =
+        (state.value as? EffectState.Running)?.config?.takeIf { it.effect == effect } ?: EffectConfig(effect)
+}
+
+class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRepository {
+    override val settings = MutableStateFlow(initial)
+    override suspend fun setOnboardingCompleted(completed: Boolean) = settings.update { it.copy(onboardingCompleted = completed) }
+    override suspend fun setSecurityNoticeAccepted(accepted: Boolean) = settings.update { it.copy(securityNoticeAccepted = accepted) }
+    override suspend fun setTargetFps(fps: Int) = settings.update { it.copy(targetFps = fps) }
 }

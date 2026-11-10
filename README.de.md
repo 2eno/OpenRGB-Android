@@ -18,7 +18,7 @@ läuft (Standardport **6742**).
 | 2b. Verbindungen, Netzwerk-Scan, Geräteliste, Detailansicht, Onboarding (App) | ✅ |
 | 2c. Farbsteuerung (Farbrad, HSV, Hex, Favoriten, Ziele, Live-Vorschau) und Hardware-Modi | ✅ |
 | 2d. Profile (8 vorgefertigte, eigene, Duplizieren, JSON-Import/-Export, global oder pro Gerät) | ✅ |
-| 2e. Effekt-Engine | ⏳ |
+| 2e. Effekt-Engine (8 Effekte inkl. Musik), Foreground-Service, Effekte-Tab | ✅ |
 | 2f. UI-Feinschliff, Widgets, Kacheln | ⏳ |
 
 ## Screenshots
@@ -38,6 +38,10 @@ weil Debug-Geräte alle LEDs als schwarz melden.
 | Profile | Profil-Editor |
 |---|---|
 | ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) |
+
+| Effekte | Effekt-Einstellungen |
+|---|---|
+| ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
 
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 

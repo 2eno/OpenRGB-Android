@@ -2,10 +2,12 @@ package dev.eno2.openrgbremote.ui.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Style
 import androidx.compose.material.icons.outlined.Style
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -25,6 +27,8 @@ import androidx.navigation.compose.rememberNavController
 import dev.eno2.openrgbremote.R
 import dev.eno2.openrgbremote.feature.color.ColorRoute as ColorScreenRoute
 import dev.eno2.openrgbremote.feature.devicedetail.DeviceDetailRoute as DeviceDetailScreenRoute
+import dev.eno2.openrgbremote.feature.effects.EffectSettingsRoute as EffectSettingsScreenRoute
+import dev.eno2.openrgbremote.feature.effects.EffectsRoute as EffectsScreenRoute
 import dev.eno2.openrgbremote.feature.devices.DevicesRoute as DevicesScreenRoute
 import dev.eno2.openrgbremote.feature.profiles.ProfileEditRoute as ProfileEditScreenRoute
 import dev.eno2.openrgbremote.feature.profiles.ProfilesRoute as ProfilesScreenRoute
@@ -41,6 +45,7 @@ private enum class TopLevel(
 ) {
     DEVICES(DevicesRoute, R.string.nav_devices, Icons.Filled.Lightbulb, Icons.Outlined.Lightbulb),
     PROFILES(ProfilesRoute, R.string.nav_profiles, Icons.Filled.Style, Icons.Outlined.Style),
+    EFFECTS(EffectsRoute, R.string.nav_effects, Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome),
     SETTINGS(SettingsRoute, R.string.nav_settings, Icons.Filled.Settings, Icons.Outlined.Settings),
 }
 
@@ -48,6 +53,7 @@ private fun NavDestination?.topLevel(): TopLevel? = when {
     this == null -> null
     hasRoute(DevicesRoute::class) || hasRoute(DeviceDetailRoute::class) || hasRoute(ColorRoute::class) -> TopLevel.DEVICES
     hasRoute(ProfilesRoute::class) || hasRoute(ProfileEditRoute::class) -> TopLevel.PROFILES
+    hasRoute(EffectsRoute::class) || hasRoute(EffectSettingsRoute::class) -> TopLevel.EFFECTS
     else -> TopLevel.SETTINGS
 }
 
@@ -103,6 +109,21 @@ fun MainNavigation() {
             }
             composable<ProfileEditRoute> {
                 ProfileEditScreenRoute(onDone = navController::navigateUp)
+            }
+            composable<EffectsRoute> {
+                EffectsScreenRoute(
+                    onOpen = { effect -> navController.navigate(EffectSettingsRoute(effect.name)) },
+                    onOpenDevices = {
+                        navController.navigate(DevicesRoute) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
+            composable<EffectSettingsRoute> {
+                EffectSettingsScreenRoute(onBack = navController::navigateUp)
             }
             composable<SettingsRoute> {
                 SettingsScreenRoute(onOpenServers = { navController.navigate(ServersRoute) })

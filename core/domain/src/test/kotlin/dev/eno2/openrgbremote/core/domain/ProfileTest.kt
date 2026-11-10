@@ -11,6 +11,7 @@ import dev.eno2.openrgbremote.core.domain.repository.ProfileCodec
 import dev.eno2.openrgbremote.core.domain.repository.ProfileDecodeResult
 import dev.eno2.openrgbremote.core.domain.repository.ProfileImportError
 import dev.eno2.openrgbremote.core.domain.testing.FakeConnectionRepository
+import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
 import dev.eno2.openrgbremote.core.domain.testing.FakeLightingRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeProfileRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeServerRepository
@@ -104,12 +105,14 @@ class ProfileTest {
         connections.statuses.value = mapOf(1L to ConnectionStatus.Connected(6, null, null))
         connections.devices.value = mapOf(1L to listOf(device, ramWithoutDirect))
         val lighting = FakeLightingRepository()
-        val apply = ApplyProfile(ObserveServerOverviews(FakeServerRepository(listOf(Server(1, "PC", "h"))), connections), lighting)
+        val effects = FakeEffectController()
+        val apply = ApplyProfile(ObserveServerOverviews(FakeServerRepository(listOf(Server(1, "PC", "h"))), connections), lighting, effects)
 
         val p = profile(ColorLayout.GRADIENT, 0xFF0000, 0x0000FF)
         assertEquals(2, apply(p))
         assertEquals(listOf("frame Keyboard 6", "color FF0000 final RAM"), lighting.calls)
         assertEquals(0xFF0000, lighting.frames.getValue("Keyboard")[1])
+        assertEquals(listOf("stop"), effects.calls, "a running effect would overwrite the profile")
 
         lighting.calls.clear()
         assertEquals(1, apply(p, only = setOf(DeviceKey.of(1, ramWithoutDirect))))

@@ -18,6 +18,7 @@ kotlin {
 
 dependencies {
     api(project(":openrgb-sdk"))
+    api(project(":core:effects"))
     api(libs.kotlinx.coroutines.core)
 
     testImplementation(kotlin("test"))

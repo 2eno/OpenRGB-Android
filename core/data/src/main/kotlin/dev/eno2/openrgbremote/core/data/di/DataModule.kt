@@ -20,6 +20,11 @@ import dev.eno2.openrgbremote.core.data.connection.NetworkMonitor
 import dev.eno2.openrgbremote.core.data.db.AppDatabase
 import dev.eno2.openrgbremote.core.data.db.FavoriteColorDao
 import dev.eno2.openrgbremote.core.data.db.ProfileDao
+import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
+import dev.eno2.openrgbremote.core.data.effects.EffectEngine
+import dev.eno2.openrgbremote.core.data.effects.MicrophoneAudioSource
+import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import kotlinx.coroutines.flow.map
 import dev.eno2.openrgbremote.core.data.db.ServerDao
 import dev.eno2.openrgbremote.core.data.profile.JsonProfileCodec
 import dev.eno2.openrgbremote.core.data.profile.RoomProfileRepository
@@ -69,6 +74,8 @@ abstract class DataBindings {
     @Binds abstract fun lightingRepository(impl: LightingController): LightingRepository
     @Binds abstract fun profileRepository(impl: RoomProfileRepository): ProfileRepository
     @Binds abstract fun profileCodec(impl: JsonProfileCodec): ProfileCodec
+    @Binds abstract fun effectController(impl: EffectEngine): EffectController
+    @Binds abstract fun audioLevelSource(impl: MicrophoneAudioSource): AudioLevelSource
     @Binds abstract fun localNetworkProvider(impl: AndroidLocalNetworkProvider): LocalNetworkProvider
 }
 
@@ -100,7 +107,26 @@ object DataModule {
     @Provides fun saveProfile(profiles: ProfileRepository) = SaveProfile(profiles)
     @Provides fun duplicateProfile(profiles: ProfileRepository, save: SaveProfile) = DuplicateProfile(profiles, save)
     @Provides fun importProfiles(profiles: ProfileRepository, codec: ProfileCodec, save: SaveProfile) = ImportProfiles(profiles, codec, save)
-    @Provides fun applyProfile(overviews: ObserveServerOverviews, lighting: LightingRepository) = ApplyProfile(overviews, lighting)
+    @Provides fun applyProfile(overviews: ObserveServerOverviews, lighting: LightingRepository, effects: EffectController) =
+        ApplyProfile(overviews, lighting, effects)
+
+    @Provides
+    @Singleton
+    fun effectEngine(
+        overviews: ObserveServerOverviews,
+        lighting: LightingRepository,
+        connections: ConnectionManager,
+        settings: SettingsRepository,
+        audio: AudioLevelSource,
+        @ApplicationScope scope: CoroutineScope,
+    ): EffectEngine = EffectEngine(
+        devices = overviews().map { list -> list.flatMap { it.devices } },
+        lighting = lighting,
+        keepAlive = connections::acquireKeepAlive,
+        targetFps = settings.settings.map { it.targetFps },
+        audio = audio,
+        scope = scope,
+    )
 
     @Provides
     @Singleton

@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
@@ -42,6 +43,19 @@ import dev.eno2.openrgbremote.feature.devices.DevicesActions
 import dev.eno2.openrgbremote.feature.devices.DevicesScreen
 import dev.eno2.openrgbremote.feature.devices.DevicesUiState
 import dev.eno2.openrgbremote.feature.onboarding.OnboardingActions
+import dev.eno2.openrgbremote.feature.effects.EffectCard
+import dev.eno2.openrgbremote.feature.effects.EffectSettingsActions
+import dev.eno2.openrgbremote.feature.effects.EffectSettingsScreen
+import dev.eno2.openrgbremote.feature.effects.EffectSettingsUiState
+import dev.eno2.openrgbremote.feature.effects.EffectsScreen
+import dev.eno2.openrgbremote.feature.effects.EffectsUiState
+import dev.eno2.openrgbremote.feature.effects.LocalAnimateEffectPreviews
+import dev.eno2.openrgbremote.feature.effects.MicrophoneState
+import dev.eno2.openrgbremote.core.domain.model.EffectConfig
+import dev.eno2.openrgbremote.core.domain.model.EffectState
+import dev.eno2.openrgbremote.core.effects.EffectId
+import dev.eno2.openrgbremote.core.effects.EffectParams
+import dev.eno2.openrgbremote.core.effects.LoopStats
 import dev.eno2.openrgbremote.feature.profiles.ProfileEditActions
 import dev.eno2.openrgbremote.feature.profiles.ProfileEditScreen
 import dev.eno2.openrgbremote.feature.profiles.ProfileEditUiState
@@ -87,7 +101,9 @@ class ScreenshotTest {
         if (qualifiers.isNotEmpty()) RuntimeEnvironment.setQualifiers(qualifiers)
         compose.setContent {
             OpenRgbTheme(darkTheme = dark, dynamicColor = false) {
-                Surface(Modifier.fillMaxSize()) { content() }
+                CompositionLocalProvider(LocalAnimateEffectPreviews provides false) {
+                    Surface(Modifier.fillMaxSize()) { content() }
+                }
             }
         }
         compose.waitForIdle()
@@ -268,5 +284,41 @@ class ScreenshotTest {
     @Test
     fun profile_edit_de() = capture("profile_edit_de", "+de") {
         ProfileEditScreen(ProfileEditUiState(loading = false, profile = customProfiles[0]), ProfileEditActions())
+    }
+
+    private fun effectsState(running: EffectState.Running?) = EffectsUiState(
+        running = running,
+        cards = EffectId.entries.map { EffectCard(it, EffectParams(), running?.config?.effect == it) },
+    )
+
+    @Test
+    fun effects_de() = capture("effects_de", "de-w411dp-h1250dp-xxhdpi") {
+        val running = EffectState.Running(EffectConfig(EffectId.RAINBOW_WAVE), LoopStats(targetFps = 30, fps = 30, frameMillis = 0.4f, targets = 4), deviceCount = 4)
+        EffectsScreen(effectsState(running), onOpen = {}, onStop = {}, onOpenDevices = {})
+    }
+
+    @Test
+    fun effects_tablet_en_dark() = capture("effects_tablet_en_dark", "en-w1280dp-h800dp-land-night-xhdpi", dark = true) {
+        EffectsScreen(effectsState(null), onOpen = {}, onStop = {}, onOpenDevices = {})
+    }
+
+    @Test
+    fun effect_settings_de() = capture("effect_settings_de", "de-w411dp-h1100dp-xxhdpi") {
+        val devices = demoDevices().take(4).mapIndexed { i, d -> TargetDevice(DeviceKey.of(1, d), d.label, d.type, i != 1, true) }
+        EffectSettingsScreen(
+            EffectSettingsUiState(EffectConfig(EffectId.AURORA, EffectParams(speed = 0.8f)), running = true, devices = devices, loading = false),
+            MicrophoneState.NOT_NEEDED,
+            EffectSettingsActions(),
+        )
+    }
+
+    @Test
+    fun effect_music_en() = capture("effect_music_en", "en-w411dp-h1000dp-xxhdpi") {
+        val devices = demoDevices().take(2).map { d -> TargetDevice(DeviceKey.of(1, d), d.label, d.type, true, true) }
+        EffectSettingsScreen(
+            EffectSettingsUiState(EffectConfig(EffectId.MUSIC), devices = devices, loading = false),
+            MicrophoneState.NEEDS_PERMISSION,
+            EffectSettingsActions(),
+        )
     }
 }

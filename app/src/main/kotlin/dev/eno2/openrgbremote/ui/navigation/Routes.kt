@@ -28,3 +28,8 @@ import kotlinx.serialization.Serializable
 
 /** [profileId] 0 creates a new profile. */
 @Serializable data class ProfileEditRoute(val profileId: Long = 0)
+
+@Serializable data object EffectsRoute
+
+/** [effect] is an [dev.eno2.openrgbremote.core.effects.EffectId] name. */
+@Serializable data class EffectSettingsRoute(val effect: String)

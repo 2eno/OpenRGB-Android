@@ -10,6 +10,7 @@ import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.model.Server
 import dev.eno2.openrgbremote.core.domain.repository.ProfileImportError
 import dev.eno2.openrgbremote.core.domain.testing.FakeConnectionRepository
+import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
 import dev.eno2.openrgbremote.core.domain.testing.FakeLightingRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeProfileRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeServerRepository
@@ -54,12 +55,12 @@ class ProfileViewModelTest {
     private val codec = JsonProfileCodec()
 
     private fun TestScope.listViewModel(): ProfilesViewModel {
-        val vm = ProfilesViewModel(ObserveProfiles(repo), overviews, repo, ApplyProfile(overviews, lighting), DuplicateProfile(repo, save), ImportProfiles(repo, codec, save), codec)
+        val vm = ProfilesViewModel(ObserveProfiles(repo), overviews, repo, ApplyProfile(overviews, lighting, FakeEffectController()), DuplicateProfile(repo, save), ImportProfiles(repo, codec, save), codec)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         return vm
     }
 
-    private fun editViewModel(id: Long) = ProfileEditViewModel(SavedStateHandle(mapOf("profileId" to id)), GetProfile(repo), save, ApplyProfile(overviews, lighting))
+    private fun editViewModel(id: Long) = ProfileEditViewModel(SavedStateHandle(mapOf("profileId" to id)), GetProfile(repo), save, ApplyProfile(overviews, lighting, FakeEffectController()))
 
     @Test
     fun `list shows presets and custom profiles and applies globally or per device`() = runTest {
