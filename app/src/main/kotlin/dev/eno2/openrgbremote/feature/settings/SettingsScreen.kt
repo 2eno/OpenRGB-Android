@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -42,6 +43,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.eno2.openrgbremote.BuildConfig
 import dev.eno2.openrgbremote.R
 import dev.eno2.openrgbremote.core.designsystem.component.SectionHeader
+import dev.eno2.openrgbremote.core.domain.model.EffectFrameRates
 import dev.eno2.openrgbremote.core.domain.repository.ServerRepository
 import dev.eno2.openrgbremote.core.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +61,13 @@ class SettingsViewModel @Inject constructor(
     val serverCount: StateFlow<Int> = servers.observeServers().map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
+    val targetFps: StateFlow<Int> = settings.settings.map { it.targetFps }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), EffectFrameRates.DEFAULT)
+
+    fun setTargetFps(fps: Int) {
+        viewModelScope.launch { settings.setTargetFps(fps) }
+    }
+
     /** Showing the introduction again switches the app back to the onboarding stage. */
     fun showOnboardingAgain() {
         viewModelScope.launch { settings.setOnboardingCompleted(false) }
@@ -68,12 +77,19 @@ class SettingsViewModel @Inject constructor(
 @Composable
 fun SettingsRoute(onOpenServers: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val count by viewModel.serverCount.collectAsStateWithLifecycle()
-    SettingsScreen(count, onOpenServers, viewModel::showOnboardingAgain)
+    val fps by viewModel.targetFps.collectAsStateWithLifecycle()
+    SettingsScreen(count, onOpenServers, viewModel::showOnboardingAgain, fps, viewModel::setTargetFps)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(serverCount: Int, onOpenServers: () -> Unit, onShowOnboarding: () -> Unit) {
+fun SettingsScreen(
+    serverCount: Int,
+    onOpenServers: () -> Unit,
+    onShowOnboarding: () -> Unit,
+    targetFps: Int = EffectFrameRates.DEFAULT,
+    onTargetFps: (Int) -> Unit = {},
+) {
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_settings)) }) }) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -90,6 +106,23 @@ fun SettingsScreen(serverCount: Int, onOpenServers: () -> Unit, onShowOnboarding
                         supportingContent = { Text(pluralStringResource(R.plurals.servers_saved, serverCount, serverCount)) },
                         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
                     )
+                }
+
+                SectionHeader(stringResource(R.string.settings_section_effects))
+                SettingsCard {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.settings_fps), style = MaterialTheme.typography.bodyLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EffectFrameRates.options.forEach { option ->
+                                FilterChip(
+                                    selected = option == targetFps,
+                                    onClick = { onTargetFps(option) },
+                                    label = { Text(stringResource(R.string.settings_fps_value, option)) },
+                                )
+                            }
+                        }
+                        Text(stringResource(R.string.settings_fps_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
 
                 SectionHeader(stringResource(R.string.settings_section_security))

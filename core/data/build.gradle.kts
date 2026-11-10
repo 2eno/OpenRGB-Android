@@ -39,4 +39,5 @@ dependencies {
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(testFixtures(project(":openrgb-sdk")))
+    testImplementation(testFixtures(project(":core:domain")))
 }

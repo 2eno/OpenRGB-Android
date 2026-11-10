@@ -42,4 +42,6 @@ sealed interface ConnectionTestResult {
 data class AppSettings(
     val onboardingCompleted: Boolean = false,
     val securityNoticeAccepted: Boolean = false,
+    /** Frame rate of app-rendered effects, one of [EffectFrameRates.options]. */
+    val targetFps: Int = EffectFrameRates.DEFAULT,
 )

@@ -4,6 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import dev.eno2.openrgbremote.core.domain.model.EffectFrameRates
 import dev.eno2.openrgbremote.core.domain.model.AppSettings
 import dev.eno2.openrgbremote.core.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +21,7 @@ class DataStoreSettingsRepository @Inject constructor(
         AppSettings(
             onboardingCompleted = prefs[ONBOARDING_COMPLETED] ?: false,
             securityNoticeAccepted = prefs[SECURITY_NOTICE_ACCEPTED] ?: false,
+            targetFps = prefs[TARGET_FPS]?.takeIf { it in EffectFrameRates.options } ?: EffectFrameRates.DEFAULT,
         )
     }.distinctUntilChanged()
 
@@ -30,8 +33,14 @@ class DataStoreSettingsRepository @Inject constructor(
         dataStore.edit { it[SECURITY_NOTICE_ACCEPTED] = accepted }
     }
 
+    override suspend fun setTargetFps(fps: Int) {
+        require(fps in EffectFrameRates.options) { "Unsupported frame rate $fps" }
+        dataStore.edit { it[TARGET_FPS] = fps }
+    }
+
     private companion object {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val SECURITY_NOTICE_ACCEPTED = booleanPreferencesKey("security_notice_accepted")
+        val TARGET_FPS = intPreferencesKey("target_fps")
     }
 }

@@ -6,6 +6,16 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Reconnect when Wi-Fi comes back and find the local subnet for the network scan. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Keep streaming an effect while the app is in the background. connectedDevice requires one
+         of several "connectivity" permissions on Android 14+; CHANGE_NETWORK_STATE is a normal one. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <!-- Music effect only, requested at runtime when the user starts it. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Notification with the stop action of a running effect (Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".OpenRgbRemoteApp"
@@ -29,5 +39,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.EffectService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|microphone" />
     </application>
 </manifest>

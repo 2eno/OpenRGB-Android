@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
+import dev.eno2.openrgbremote.core.domain.repository.EffectController
 import dev.eno2.openrgbremote.core.domain.repository.LightingRepository
 import dev.eno2.openrgbremote.core.domain.usecase.DeviceWithServer
 import dev.eno2.openrgbremote.core.domain.usecase.ObserveDevice
@@ -39,6 +40,7 @@ class DeviceDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     observeDevice: ObserveDevice,
     private val lighting: LightingRepository,
+    private val effects: EffectController,
 ) : ViewModel() {
 
     // Argument of DeviceDetailRoute.
@@ -80,6 +82,8 @@ class DeviceDetailViewModel @Inject constructor(
 
     private fun setMode(index: Int, mode: DeviceMode) {
         val k = key ?: return
+        // An app effect forces the per-LED mode with every frame and would undo the hardware mode.
+        effects.stop()
         viewModelScope.launch {
             if (!lighting.setMode(k, index, mode)) message.value = DetailMessage.DEVICE_UNREACHABLE
         }

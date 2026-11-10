@@ -6,6 +6,7 @@ import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.HsvColor
 import dev.eno2.openrgbremote.core.domain.model.Server
 import dev.eno2.openrgbremote.core.domain.testing.FakeConnectionRepository
+import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
 import dev.eno2.openrgbremote.core.domain.testing.FakeFavoriteColorRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeLightingRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeServerRepository
@@ -46,6 +47,7 @@ class ColorViewModelTest {
     private val connections = FakeConnectionRepository()
     private val lighting = FakeLightingRepository()
     private val favorites = FakeFavoriteColorRepository(listOf(0x112233))
+    private val effects = FakeEffectController()
 
     /** Keyboard (5 zones, 145 LEDs) and ARGB controller decoded from real OpenRGB 1.0 packets. */
     private val keyboard: OpenRgbDevice = RealDevices.all()[0].let { it.copy(colors = ColorArray.of(IntArray(it.ledCount) { 0x00FF00 })) }
@@ -58,7 +60,7 @@ class ColorViewModelTest {
     }
 
     private fun TestScope.colorViewModel(vararg args: Pair<String, Any?>): ColorViewModel {
-        val vm = ColorViewModel(SavedStateHandle(mapOf(*args)), ObserveServerOverviews(servers, connections), lighting, favorites)
+        val vm = ColorViewModel(SavedStateHandle(mapOf(*args)), ObserveServerOverviews(servers, connections), lighting, favorites, effects)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         return vm
     }
@@ -81,6 +83,7 @@ class ColorViewModelTest {
             lighting.calls,
         )
         assertTrue(vm.state.value.canUndo)
+        assertEquals("stop", effects.calls.first(), "a running effect would paint over the color")
     }
 
     @Test
@@ -178,12 +181,14 @@ class ColorViewModelTest {
             SavedStateHandle(mapOf("key" to keyboardKey.encode())),
             ObserveDevice(ObserveServerOverviews(servers, connections)),
             lighting,
+            effects,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         assertEquals(keyboardKey.encode(), vm.state.value.encodedKey)
 
         vm.selectMode(1)
         assertEquals("mode Debug Keyboard 1 Rainbow speed=3 brightness=0 dir=0 colors=0", lighting.calls.last())
+        assertEquals(listOf("stop"), effects.calls, "hardware modes end the app effect")
         vm.updateActiveMode(vm.state.value.device!!.modes[0].copy(brightness = 7))
         assertEquals("mode Debug Keyboard 0 Direct speed=0 brightness=7 dir=0 colors=0", lighting.calls.last())
         vm.saveActiveMode()

@@ -28,10 +28,10 @@ OpenRGB-Android/
 │       └── discovery/           Ipv4Subnet, OpenRgbProbe, SubnetScanner
 ├── core/
 │   ├── domain/                  ✅ Kotlin/JVM – Server, Status, DeviceKey, Repository-Interfaces, Use-Cases
-│   ├── effects/                 ⏳ Kotlin/JVM – Effekt-Renderer, LED-Geometrie, EffectRunner (Taktgeber)
+│   ├── effects/                 ✅ Kotlin/JVM – Effekt-Renderer, LED-Geometrie, Audio-Analyse (FFT), EffectLoop
 │   ├── data/                    ✅ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Scan, Hilt
 │   └── designsystem/            ✅ Android-Lib – Material-3-Theme, Gerätesymbole, LED-Darstellung und Farbwähler
-├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, PCs, Scan, Einstellungen, Onboarding; Rest ⏳)
+├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, Effekte, Service, PCs, Scan, Einstellungen, Onboarding; Widgets/Kacheln ⏳)
 │   └── src/main/kotlin/dev/eno2/openrgbremote/
 │       ├── feature/onboarding/  Drei-Schritte-Onboarding inkl. Anleitung „SDK-Server starten“
 │       ├── feature/devices/     Geräteübersicht, Detailansicht (Zonen/LEDs), Farbsteuerung
@@ -149,17 +149,43 @@ bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag 
 * **Profil-Format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, Ziel
   `global | devices[]`, Parameter. Dasselbe Format dient für Import und Export, inklusive `schemaVersion`.
 
-## 5. Effekt-Engine (geplant, `:core:effects`)
+## 5. Effekt-Engine (`:core:effects`)
 
-* `Effect.render(t: Double, layout: LedLayout, params: EffectParams, out: IntArray)` als reine Funktion.
-* `LedLayout`: normalisierte LED-Positionen (Linear: 0..1, Matrix: x/y aus der Matrix-Map), sodass
-  Wave, Aurora und Fire auf Keyboards zweidimensional laufen.
-* `EffectRunner`: `ticker` mit Ziel-FPS (30/45/60), Frame-Budget-Messung, adaptive Senkung der FPS bei
-  Überlast, Ausgabe über `LedFrameStreamer` je Gerät.
-* Effekte: Rainbow Wave, Color Cycle, Breathing, Fire, Aurora, Pulse, Gradient Flow, Music-Reactive
-  (`AudioRecord` + FFT; nur nach Laufzeitberechtigung, Foreground-Service-Typ `microphone`).
-* Hardware-Modi des Geräts (`UpdateMode`) laufen ohne Netzwerklast auf dem Controller und sind der
-  empfohlene Weg, wenn das Handy nicht dauerhaft streamen soll.
+* **Renderer** (`EffectRenderer`): reine Funktion `(Effekt, Effektzeit, LedLayout, Parameter,
+  AudioLevels) → Farben`. Gleiche Eingaben ergeben immer dieselben Farben; die animierte Vorschau in
+  der App nutzt denselben Code wie die Geräte. Rauschen ist deterministisch (Value-Noise), daher
+  brauchen Feuer und Polarlicht keinen Zustand.
+* **Effektzeit** statt Uhrzeit: Die Schleife addiert `Δt × Geschwindigkeit`. Ändert man die
+  Geschwindigkeit im laufenden Effekt, läuft die Animation flüssig weiter statt zu springen.
+* **`LedLayout`**: normalisierte Position jeder LED. Jede Zone für sich 0..1 (wie bei Profilen),
+  Matrix-Zonen mit x/y aus der Matrix-Map. Feuer brennt auf Tastaturen von unten, der Musik-Effekt
+  wird dort zum Balkendiagramm.
+* **Effekte:** Regenbogenwelle, Farbwechsel, Atmen, Feuer, Polarlicht, Puls, Farbverlauf und Musik.
+  Einstellbar sind Geschwindigkeit (0,25–3×), Richtung (wo sichtbar), Farben (bis 8) und Helligkeit.
+* **`EffectLoop`**: Frame-Takt mit Ziel-FPS (30/45/60, Einstellung). Fällt das Rendern zurück, werden
+  Takte übersprungen statt nachgeholt. Backpressure übernimmt der konfluierende `LedFrameStreamer`
+  pro Gerät (mit ACK-Fenster ab Protokoll 6). Gemessen werden tatsächliche FPS und Renderzeit.
+* **`AudioAnalyzer`**: Hann-Fenster, FFT (1024, 50 % Überlappung), 16 logarithmische Bänder von
+  40 Hz bis 12 kHz, auf 0 dBFS normiert, automatische Verstärkung mit Untergrenze, Noise-Gate bei
+  −62 dBFS sowie Attack/Release-Glättung.
+
+### Ausführung (`EffectEngine`, `EffectService`)
+
+* `EffectEngine` (Datenschicht) verbindet die Schleife mit allen verbundenen Geräten mit
+  Per-LED-Modus. Ziele werden nur neu aufgebaut, wenn sich die **Struktur** ändert (Gerät
+  kommt/geht, Zone ändert ihre Größe), nicht bei jedem zurückgemeldeten Frame.
+* Ein neuer Start im laufenden Effekt übernimmt Effekt, Parameter und Ziele ohne Neustart.
+* Solange ein Effekt läuft, hält die Engine ein **Keep-Alive** am `ConnectionManager`: Die
+  Verbindungen bleiben auch im Hintergrund offen.
+* Das Mikrofon wird nur aufgenommen, solange der Musik-Effekt läuft. Die Audiodaten verlassen das
+  Gerät nie; der Effekt bekommt nur 16 Pegelwerte.
+* **Manuelle Steuerung beendet den Effekt:** Farbe setzen, Profil anwenden oder einen Hardware-Modus
+  wählen stoppt ihn. Sonst würde der nächste Frame die Änderung sofort überschreiben.
+* `EffectService` (Foreground-Service, Typ `connectedDevice`, mit Mikrofon zusätzlich `microphone`)
+  hält den Prozess am Leben und zeigt die Benachrichtigung mit „Stoppen“. Er folgt nur dem Zustand
+  der Engine und beendet sich, sobald der Effekt endet.
+* **Hardware-Effekte** der Geräte (`UpdateMode`) laufen ohne Handy und ohne Netzwerklast auf dem
+  Controller. Der Effekte-Tab verweist darauf.
 
 ## 6. Präsentation
 
@@ -219,5 +245,13 @@ eine Network-Security-Config ist daher nicht nötig.
   Hardware-Modus und nicht Geräte ohne Per-LED-Modus. Einzelne LEDs sind nur per Antippen
   erreichbar; TalkBack-Nutzer steuern Geräte und Zonen. Diagonale Modus-Richtungen (nur
   Protokoll 6) werden angezeigt, aber nicht zur Auswahl angeboten.
+* **Musik-Effekt:** Android erlaubt nur das Mikrofon, nicht das Mithören anderer Apps (das ginge
+  nur mit Bildschirmaufnahme-Zustimmung). Der Effekt reagiert daher auf den Raumklang; die
+  Latenz liegt bei etwa 30–60 ms (Analysefenster) plus Netzwerk.
+* **Effekte im Hintergrund:** Hersteller mit aggressivem Energiesparen (z. B. einige
+  Xiaomi-/Huawei-Geräte) können auch Foreground-Services drosseln. Dann muss die App in den
+  Akku-Einstellungen von der Optimierung ausgenommen werden.
+* **Effekte in Profilen:** Das JSON-Format kennt bisher nur statische Profile. Effekt-Einstellungen
+  merkt sich die App nur bis zum Neustart.
 * **Mehrere Clients gleichzeitig** (z. B. OpenRGB-GUI-Effekte und die App): Es gilt
   „der letzte Schreiber gewinnt“. Laufende Effekte anderer Clients überschreiben die App.
