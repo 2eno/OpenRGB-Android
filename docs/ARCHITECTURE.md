@@ -1,257 +1,260 @@
-# Architektur – OpenRGB Remote für Android
+# Architecture – OpenRGB Remote for Android
 
-Inoffizieller Android-Client für den **OpenRGB SDK Server** (TCP, Standardport 6742).
-Die App steuert ausschließlich RGB-Hardware an PCs im Netzwerk; es gibt keinen lokalen
-Server und keine lokale Hardwaresteuerung.
+*English · [Deutsch](ARCHITECTURE.de.md)*
 
-## 1. Leitentscheidungen
+An unofficial Android client for the **OpenRGB SDK server** (TCP, default port 6742).
+The app only controls RGB hardware on PCs in the network; there is no local server and no
+local hardware control.
 
-| Entscheidung | Begründung |
+## 1. Key decisions
+
+| Decision | Rationale |
 |---|---|
-| **Protokoll als reine Kotlin/JVM-Bibliothek** (`:openrgb-sdk`) | Ohne Android-Abhängigkeiten auf der JVM testbar (inkl. echter Sockets), wiederverwendbar, klare Grenze zwischen Bytes und App. |
-| **Blocking `java.net.Socket` statt NIO-Selector/Ktor** | Pro Server genau eine Verbindung, ein Leser, kurze Schreibvorgänge. Ein IO-Thread pro Verbindung ist einfacher und genauso schnell. `TCP_NODELAY` verhindert bis zu 200 ms Nagle-Verzögerung pro Frame. |
-| **Clean Architecture mit drei Schichten** | `domain` (reines Kotlin: Entities, Use-Cases, Repository-Interfaces) ← `data` (Room, DataStore, SDK) ← `presentation` (Compose + ViewModels). Abhängigkeiten zeigen nur nach innen. |
-| **Feature-Pakete statt Feature-Module** | Für ein Ein-Personen-Projekt sind 6 Module ein guter Kompromiss: Build-Zeiten bleiben kurz, die Grenzen sind trotzdem vom Compiler geprüft. |
-| **Effekt-Engine als reines Kotlin** (`:core:effects`) | Renderer sind reine Funktionen `(Zeit, LED-Geometrie, Parameter) → Farben`. Das ist deterministisch testbar und unabhängig von Android. |
-| **Hilt, Coroutines/Flow, Room + DataStore** | Wie gefordert. Room für strukturierte Daten (Server, Profile, Zeitpläne), DataStore für Einstellungen. |
+| **Protocol as a plain Kotlin/JVM library** (`:openrgb-sdk`) | Testable on the JVM without Android dependencies (including real sockets), reusable, a clear boundary between bytes and app. |
+| **Blocking `java.net.Socket` instead of an NIO selector/Ktor** | Exactly one connection per server, one reader, short writes. One IO thread per connection is simpler and just as fast. `TCP_NODELAY` avoids up to 200 ms of Nagle delay per frame. |
+| **Clean architecture with three layers** | `domain` (plain Kotlin: entities, use cases, repository interfaces) ← `data` (Room, DataStore, SDK) ← `presentation` (Compose + ViewModels). Dependencies only point inwards. |
+| **Feature packages instead of feature modules** | For a one-person project, 6 modules are a good compromise: build times stay short, and the boundaries are still checked by the compiler. |
+| **Effects engine as plain Kotlin** (`:core:effects`) | Renderers are pure functions `(time, LED geometry, parameters) → colors`. That is deterministically testable and independent of Android. |
+| **Hilt, coroutines/Flow, Room + DataStore** | As required. Room for structured data (servers, profiles, schedules), DataStore for settings. |
 
-## 2. Modul- und Projektstruktur
+## 2. Module and project structure
 
 ```
 OpenRGB-Android/
-├── openrgb-sdk/                 ✅ Kotlin/JVM – Protokoll, Client, Reconnect, Discovery
+├── openrgb-sdk/                 ✅ Kotlin/JVM – protocol, client, reconnect, discovery
 │   └── src/main/kotlin/dev/eno2/openrgbremote/sdk/
-│       ├── protocol/            Header, Paket-IDs, LE-Reader/Writer, DeviceCodec, Requests, Responses
+│       ├── protocol/            header, packet IDs, LE reader/writer, DeviceCodec, requests, responses
 │       ├── model/               OpenRgbDevice, Zone, DeviceMode, Segment, Led, MatrixMap, RgbColor, DeviceType
-│       ├── transport/           PacketTransport (Interface), SocketTransport
-│       ├── client/              OpenRgbClient, OpenRgbConnection (Auto-Reconnect), LedFrameStreamer, ConnectionError
+│       ├── transport/           PacketTransport (interface), SocketTransport
+│       ├── client/              OpenRgbClient, OpenRgbConnection (auto-reconnect), LedFrameStreamer, ConnectionError
 │       └── discovery/           Ipv4Subnet, OpenRgbProbe, SubnetScanner
 ├── core/
-│   ├── domain/                  ✅ Kotlin/JVM – Server, Status, DeviceKey, Repository-Interfaces, Use-Cases
-│   ├── effects/                 ✅ Kotlin/JVM – Effekt-Renderer, LED-Geometrie, Audio-Analyse (FFT), EffectLoop
-│   ├── data/                    ✅ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Scan, Hilt
-│   └── designsystem/            ✅ Android-Lib – Material-3-Theme, Gerätesymbole, LED-Darstellung und Farbwähler
-├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, Effekte, Service, PCs, Scan, Einstellungen, Onboarding; Widgets/Kacheln ⏳)
+│   ├── domain/                  ✅ Kotlin/JVM – server, status, DeviceKey, repository interfaces, use cases
+│   ├── effects/                 ✅ Kotlin/JVM – effect renderers, LED geometry, audio analysis (FFT), EffectLoop
+│   ├── data/                    ✅ Android lib – Room, DataStore, ConnectionManager (multiple PCs), scan, Hilt
+│   └── designsystem/            ✅ Android lib – Material 3 theme, device icons, LED rendering and color picker
+├── app/                         ✅ Android app (devices, detail, color, modes, profiles, effects, service, PCs, scan, settings, onboarding; widgets/tiles ⏳)
 │   └── src/main/kotlin/dev/eno2/openrgbremote/
-│       ├── feature/onboarding/  Drei-Schritte-Onboarding inkl. Anleitung „SDK-Server starten“
-│       ├── feature/devices/     Geräteübersicht, Detailansicht (Zonen/LEDs), Farbsteuerung
-│       ├── feature/profiles/    Statische und eigene Profile, Import/Export
-│       ├── feature/effects/     Dynamische Effekte und Hardware-Modi
-│       ├── feature/settings/    Server, Scan, Zeitpläne, Sicherheitshinweis, Info
-│       ├── service/             EffectService (Foreground), Zeitplan-Worker
-│       ├── widget/              Glance-Widgets
-│       └── tile/                Quick-Settings-Kacheln
-├── tools/capture_fixtures.py    Schneidet echte Serverpakete als Test-Fixtures mit
-└── docs/ARCHITECTURE.md
+│       ├── feature/onboarding/  three-step onboarding incl. “start the SDK server” guide
+│       ├── feature/devices/     device overview, detail view (zones/LEDs), color control
+│       ├── feature/profiles/    static and custom profiles, import/export
+│       ├── feature/effects/     dynamic effects and hardware modes
+│       ├── feature/settings/    servers, scan, schedules, security notice, about
+│       ├── service/             EffectService (foreground), schedule worker
+│       ├── widget/              Glance widgets
+│       └── tile/                quick settings tiles
+├── tools/capture_fixtures.py    captures real server packets as test fixtures
+└── docs/ARCHITECTURE.md (+ .de.md)
 ```
 
-✅ = umgesetzt und getestet, ⏳ = folgt in den nächsten Schritten.
+✅ = implemented and tested, ⏳ = coming in the next steps.
 
-Abhängigkeiten: `app → data, designsystem, domain, effects`; `data → domain, effects, openrgb-sdk`;
-`effects → (nichts)`; `domain → (nichts)`. Die UI kennt das SDK nur über Domain-Modelle.
+Dependencies: `app → data, designsystem, domain, effects`; `data → domain, effects, openrgb-sdk`;
+`effects → (nothing)`; `domain → (nothing)`. The UI only knows the SDK through domain models.
 
-## 3. Protokollschicht (`:openrgb-sdk`)
+## 3. Protocol layer (`:openrgb-sdk`)
 
-### Quellen
-Alle Paket-IDs, Feldreihenfolgen und Versionsgrenzen stammen aus `Documentation/OpenRGBSDK.md`
-und `NetworkProtocol.h`. Zusätzlich wurden sie gegen die Serialisierer im Quellcode
-(`RGBController.cpp`, `NetworkServer.cpp`, `NetworkClient.cpp`, `RGBController_Network.cpp`) von
-**OpenRGB 1.1** sowie den Server von **0.9** geprüft. Die Unit-Tests verwenden **echte Pakete
-eines OpenRGB-1.0-Servers** für alle Protokollversionen 0–6 (`tools/capture_fixtures.py`).
-Dekodieren und erneutes Kodieren ergibt für jedes Paket exakt die Server-Bytes.
+### Sources
+All packet IDs, field orders and version boundaries come from `Documentation/OpenRGBSDK.md`
+and `NetworkProtocol.h`. They were additionally checked against the serializers in the source
+code (`RGBController.cpp`, `NetworkServer.cpp`, `NetworkClient.cpp`, `RGBController_Network.cpp`)
+of **OpenRGB 1.1** and the server of **0.9**. The unit tests use **real packets from an
+OpenRGB 1.0 server** for all protocol versions 0–6 (`tools/capture_fixtures.py`). Decoding and
+re-encoding yields exactly the server bytes for every packet.
 
-### Versionen und Fallback
-| Version | Release | Wichtig für den Client |
+### Versions and fallback
+| Version | Release | Relevant for the client |
 |---|---|---|
-| 0 | 0.3/0.4 | Antwortet nicht auf `REQUEST_PROTOCOL_VERSION`; nach Timeout wird v0 angenommen |
-| 1 | 0.5 | Vendor-String, `DEVICE_LIST_UPDATED` |
-| 2 | 0.6 | Server-Profile |
-| 3 | 0.7/0.8 | Helligkeit in Modi, `SaveMode` |
-| 4 | 0.9 | Segmente in Zonen |
-| 5 | 1.0rc1/rc2 | Zonen-/Controller-Flags, LED-Anzeigenamen, Rescan |
-| 6 | 1.0/1.1 | Unique-IDs, ACKs, `SIGNALUPDATE`, Zonen-Modi, Server-Name/-Flags; `mode_value`/`led_value` entfallen |
+| 0 | 0.3/0.4 | Does not answer `REQUEST_PROTOCOL_VERSION`; v0 is assumed after a timeout |
+| 1 | 0.5 | Vendor string, `DEVICE_LIST_UPDATED` |
+| 2 | 0.6 | Server profiles |
+| 3 | 0.7/0.8 | Brightness in modes, `SaveMode` |
+| 4 | 0.9 | Segments in zones |
+| 5 | 1.0rc1/rc2 | Zone/controller flags, LED display names, rescan |
+| 6 | 1.0/1.1 | Unique IDs, ACKs, `SIGNALUPDATE`, zone modes, server name/flags; `mode_value`/`led_value` dropped |
 
-Ablauf: `REQUEST_PROTOCOL_VERSION(6)`, dann `min(Server, Client)`, `SET_CLIENT_NAME`, ab v6
-zusätzlich `SET_CLIENT_HOSTNAME` und `SET_CLIENT_FLAGS`, danach wird die Geräteliste geladen.
-Trifft eine Versionsantwort erst nach dem Fallback auf v0 ein (langsames WLAN/VPN), baut der
-Client die Verbindung neu auf, statt mit falschen Annahmen weiterzuarbeiten.
+Sequence: `REQUEST_PROTOCOL_VERSION(6)`, then `min(server, client)`, `SET_CLIENT_NAME`, from v6
+also `SET_CLIENT_HOSTNAME` and `SET_CLIENT_FLAGS`, then the device list is loaded. If a version
+answer only arrives after the fallback to v0 (slow Wi-Fi/VPN), the client reconnects instead of
+continuing on wrong assumptions.
 
-### Geräte-IDs und `DEVICE_LIST_UPDATED`
-* **v0–5:** `pkt_dev_id` ist der Listenindex. Nach `DEVICE_LIST_UPDATED` werden die Indizes sofort
-  ungültig: Befehle werden verworfen, bis die Liste komplett neu geladen ist.
-* **v6:** Unique-IDs. Es wird nur der ID-Diff abgeglichen; neue Geräte werden geladen, entfernte
-  verworfen, unveränderte behalten ihren Zustand (über `SIGNALUPDATE` aktuell gehalten).
-* Bursts während der Hardware-Erkennung werden entprellt (Standard 250 ms).
-* Ein Heartbeat (`REQUEST_CONTROLLER_COUNT` alle 15 s) erkennt hängende Verbindungen, etwa wenn
-  der PC in den Standby geht, und gleicht verpasste Listenänderungen ab.
+### Device IDs and `DEVICE_LIST_UPDATED`
+* **v0–5:** `pkt_dev_id` is the list index. After `DEVICE_LIST_UPDATED` the indices are invalid
+  immediately: commands are dropped until the list has been reloaded completely.
+* **v6:** unique IDs. Only the ID diff is reconciled; new devices are loaded, removed ones dropped,
+  unchanged ones keep their state (kept current via `SIGNALUPDATE`).
+* Bursts during hardware detection are debounced (default 250 ms).
+* A heartbeat (`REQUEST_CONTROLLER_COUNT` every 15 s) detects hanging connections, for example
+  when the PC goes to standby, and reconciles missed list changes.
 
-### Nebenläufigkeit
-Ein Leser-Coroutine verteilt alle eingehenden Pakete. Request/Reply-Abläufe (Version, Count,
-Controller-Data) sind über einen Mutex serialisiert, weil das Protokoll keine Request-IDs hat.
-LED-Frames und Modusbefehle umgehen diesen Mutex. Ein Effekt hängt so nie hinter einem
-Listen-Refresh.
+### Concurrency
+One reader coroutine dispatches all incoming packets. Request/reply exchanges (version, count,
+controller data) are serialized through a mutex because the protocol has no request IDs. LED
+frames and mode commands bypass this mutex, so an effect never waits behind a list refresh.
 
-### Backpressure für Effekte (`LedFrameStreamer`)
-* **Conflation:** Pro Gerät gibt es einen Ein-Platz-Briefkasten. Ist der Server langsam, bekommt er
-  weniger Frames statt eines wachsenden Rückstaus. Die Latenz bleibt dadurch begrenzt.
-* **ACK-Fenster (v6):** Höchstens N `UpdateLEDs` pro Gerät sind gleichzeitig unbestätigt (Standard 2).
-  Bei verlorenem ACK setzt ein Timeout das Fenster zurück.
-* **v0–5:** Ohne ACKs ist der blockierende Socket-Write die einzige Rückmeldung.
-* Farben werden immer exakt auf die LED-Anzahl gekürzt bzw. aufgefüllt. Server vor 1.0 prüfen das
-  nicht, mehr Farben als LEDs könnten dort einen Pufferüberlauf auslösen.
+### Backpressure for effects (`LedFrameStreamer`)
+* **Conflation:** there is a single-slot mailbox per device. If the server is slow, it gets fewer
+  frames instead of a growing backlog. This keeps latency bounded.
+* **ACK window (v6):** at most N `UpdateLEDs` per device are unacknowledged at the same time
+  (default 2). If an ACK is lost, a timeout resets the window.
+* **v0–5:** without ACKs, the blocking socket write is the only feedback.
+* Colors are always truncated or padded to exactly the LED count. Servers before 1.0 don’t check
+  this; more colors than LEDs could cause a buffer overflow there.
 
-### Fehlerklassen → verständliche Meldungen
-`ConnectionErrorReason` unterscheidet: Host unbekannt, Verbindung abgelehnt (Server nicht
-gestartet/falscher Port), Zeitüberschreitung (PC aus/falsche IP/Firewall), nicht erreichbar
-(anderes Netz/VLAN), kein OpenRGB-Server, Protokollfehler und Verbindung verloren. Die App
-bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag ab.
+### Error classes → understandable messages
+`ConnectionErrorReason` distinguishes: unknown host, connection refused (server not started/wrong
+port), timeout (PC off/wrong IP/firewall), unreachable (other network/VLAN), not an OpenRGB
+server, protocol error and connection lost. The app maps every class to a localized text with a
+concrete suggestion.
 
-## 4. Datenschicht
+## 4. Data layer
 
-* **ConnectionManager** (Singleton, Hilt, reines Kotlin und auf der JVM gegen den Fake-Server
-  getestet) verwaltet eine `OpenRgbConnection` pro PC, der gerade verbunden sein soll. Ein PC ist
-  verbunden, solange die App *aktiv* ist und er „automatisch verbinden“ hat oder manuell verbunden
-  wurde. Ein einziger Collector berechnet das bei jeder Änderung der Serverliste, der Aktivität oder
-  der manuellen Overrides neu, sodass keine Locks zwischen UI und Lifecycle nötig sind.
-* **Aktiv** heißt: App im Vordergrund (`ProcessLifecycleOwner`) oder ein Keep-Alive-Handle ist
-  gehalten (ab Schritt 2e vom Effekt-Service). Nach 30 s im Hintergrund werden Verbindungen
-  geschlossen, was Akku und Server schont.
-* Kehrt das Netzwerk zurück (`ConnectivityManager`-Default-Network-Callback), wird der Backoff
-  übersprungen. Ohne Netzwerk wird jeder Fehler als „Kein Netzwerk“ angezeigt.
-* **Scan:** Die IPv4-Adresse und das Präfix kommen aus `LinkProperties` des WLAN-/Ethernet-Netzes,
-  bei aktivem VPN aus dem Netz darunter.
-* **LightingController:** Farben gehen immer als vollständiger Geräte-Frame über den
-  `LedFrameStreamer` (ein Streamer pro Verbindung). Zonen- und Einzel-LED-Änderungen werden in die
-  aktuellen Farben des Geräts eingemischt. So gibt es einen einzigen Codepfad mit Conflation, und
-  das Ziehen im Farbwähler kann beliebig oft senden. Vor dem ersten Frame wird das Gerät in seinen
-  Per-LED-Modus („Direct“) geschaltet, weil Hardware-Effekte LED-Updates ignorieren.
-* Geräte **ohne Per-LED-Modus** bekommen die Farbe über die Farbliste ihres aktiven Modus. Das ist
-  ein Moduswechsel, der Flash-Schreibzugriffe auslösen kann, und passiert deshalb nie in der
-  Live-Vorschau, sondern erst beim Loslassen.
-* **Profile:** Ein statisches Profil ist Palette + Verteilung (Verlauf, Blöcke, abwechselnd) +
-  Helligkeit. `ProfileRenderer` (reines Kotlin) erzeugt daraus die LED-Farben; dieselbe Funktion
-  zeichnet die Vorschau in der App. Jede Zone zeigt das ganze Profil, Matrix-Zonen werden
-  spaltenweise eingefärbt, damit Verläufe auf Tastaturen von links nach rechts laufen. Geräte ohne
-  Per-LED-Modus bekommen die erste Farbe. Vorgefertigte Profile stehen im Code (negative IDs,
-  Namen lokalisiert), eigene in Room (`profiles`, Schema 3).
-* **JSON-Austauschformat** (`JsonProfileCodec`): `format`, `schemaVersion`, `profiles[]` mit
-  `name`, `type`, `layout`, `brightness`, `colors` als Hex. Unbekannte Felder werden ignoriert,
-  eine höhere `schemaVersion` wird abgelehnt, Einträge mit unbekanntem `type` (später: dynamische
-  Profile) werden übersprungen. Import und Export laufen über den System-Dateidialog, die App
-  braucht dafür keine Speicherberechtigung.
-* **Favoriten** liegen in Room (`favorite_colors`, Schema 2 mit Auto-Migration).
-* **Stabile Geräte-Identität:** Unique-IDs (v6) gelten nur für eine Serversitzung, Indizes (v0–5)
-  verschieben sich. Profile referenzieren Geräte daher über `serverId + name + location + serial`
-  und werden bei jeder Verbindung neu aufgelöst.
-* **Room:** `servers` ✅ (Schema exportiert nach `core/data/schemas`); folgen: `profiles`
-  (Kopfdaten + JSON-Payload, versioniert), `favorite_colors`, `schedules`.
-* **DataStore:** Onboarding-Status ✅; folgen: Ziel-FPS, Haptik, zuletzt aktives Profil.
-* **Profil-Format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, Ziel
-  `global | devices[]`, Parameter. Dasselbe Format dient für Import und Export, inklusive `schemaVersion`.
+* **ConnectionManager** (singleton, Hilt, plain Kotlin and tested on the JVM against the fake
+  server) manages one `OpenRgbConnection` per PC that should currently be connected. A PC is
+  connected while the app is *active* and it has “connect automatically” set or was connected
+  manually. A single collector recomputes this on every change of the server list, the activity or
+  the manual overrides, so no locks between UI and lifecycle are needed.
+* **Active** means: app in the foreground (`ProcessLifecycleOwner`) or a keep-alive handle is held
+  (from step 2e by the effect service). After 30 s in the background, connections are closed, which
+  saves battery and server resources.
+* When the network comes back (`ConnectivityManager` default network callback), the backoff is
+  skipped. Without a network, every error is shown as “No network”.
+* **Scan:** the IPv4 address and prefix come from the `LinkProperties` of the Wi-Fi/Ethernet
+  network, or of the underlying network while a VPN is active.
+* **LightingController:** colors always go out as a complete device frame through the
+  `LedFrameStreamer` (one streamer per connection). Zone and single-LED changes are merged into
+  the device’s current colors. That gives a single code path with conflation, and dragging in the
+  color picker can send as often as it likes. Before the first frame the device is switched to its
+  per-LED mode (“Direct”), because hardware effects ignore LED updates.
+* Devices **without a per-LED mode** get the color through the color list of their active mode.
+  That is a mode change that can trigger flash writes, so it never happens in the live preview but
+  only on release.
+* **Profiles:** a static profile is palette + distribution (gradient, blocks, alternating) +
+  brightness. `ProfileRenderer` (plain Kotlin) produces the LED colors from it; the same function
+  draws the preview in the app. Every zone shows the whole profile; matrix zones are colored column
+  by column so gradients run left to right on keyboards. Devices without a per-LED mode get the
+  first color. Preset profiles live in code (negative IDs, localized names), custom ones in Room
+  (`profiles`, schema 3).
+* **JSON exchange format** (`JsonProfileCodec`): `format`, `schemaVersion`, `profiles[]` with
+  `name`, `type`, `layout`, `brightness`, `colors` as hex. Unknown fields are ignored, a higher
+  `schemaVersion` is rejected, entries with an unknown `type` (later: dynamic profiles) are skipped.
+  Import and export use the system file picker; the app needs no storage permission for this.
+* **Favorites** are stored in Room (`favorite_colors`, schema 2 with auto-migration).
+* **Stable device identity:** unique IDs (v6) are only valid for one server session, indices
+  (v0–5) shift. Profiles therefore reference devices by `serverId + name + location + serial` and
+  are resolved again on every connection.
+* **Room:** `servers` ✅ (schema exported to `core/data/schemas`); to follow: `profiles`
+  (header data + JSON payload, versioned), `favorite_colors`, `schedules`.
+* **DataStore:** onboarding state ✅; to follow: target FPS, haptics, last active profile.
+* **Profile format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, target
+  `global | devices[]`, parameters. The same format is used for import and export, including
+  `schemaVersion`.
 
-## 5. Effekt-Engine (`:core:effects`)
+## 5. Effects engine (`:core:effects`)
 
-* **Renderer** (`EffectRenderer`): reine Funktion `(Effekt, Effektzeit, LedLayout, Parameter,
-  AudioLevels) → Farben`. Gleiche Eingaben ergeben immer dieselben Farben; die animierte Vorschau in
-  der App nutzt denselben Code wie die Geräte. Rauschen ist deterministisch (Value-Noise), daher
-  brauchen Feuer und Polarlicht keinen Zustand.
-* **Effektzeit** statt Uhrzeit: Die Schleife addiert `Δt × Geschwindigkeit`. Ändert man die
-  Geschwindigkeit im laufenden Effekt, läuft die Animation flüssig weiter statt zu springen.
-* **`LedLayout`**: normalisierte Position jeder LED. Jede Zone für sich 0..1 (wie bei Profilen),
-  Matrix-Zonen mit x/y aus der Matrix-Map. Feuer brennt auf Tastaturen von unten, der Musik-Effekt
-  wird dort zum Balkendiagramm.
-* **Effekte:** Regenbogenwelle, Farbwechsel, Atmen, Feuer, Polarlicht, Puls, Farbverlauf und Musik.
-  Einstellbar sind Geschwindigkeit (0,25–3×), Richtung (wo sichtbar), Farben (bis 8) und Helligkeit.
-* **`EffectLoop`**: Frame-Takt mit Ziel-FPS (30/45/60, Einstellung). Fällt das Rendern zurück, werden
-  Takte übersprungen statt nachgeholt. Backpressure übernimmt der konfluierende `LedFrameStreamer`
-  pro Gerät (mit ACK-Fenster ab Protokoll 6). Gemessen werden tatsächliche FPS und Renderzeit.
-* **`AudioAnalyzer`**: Hann-Fenster, FFT (1024, 50 % Überlappung), 16 logarithmische Bänder von
-  40 Hz bis 12 kHz, auf 0 dBFS normiert, automatische Verstärkung mit Untergrenze, Noise-Gate bei
-  −62 dBFS sowie Attack/Release-Glättung.
+* **Renderer** (`EffectRenderer`): pure function `(effect, effect time, LedLayout, parameters,
+  AudioLevels) → colors`. The same inputs always give the same colors; the animated preview in
+  the app uses the same code as the devices. Noise is deterministic (value noise), so fire and
+  aurora need no state.
+* **Effect time** instead of wall-clock time: the loop adds `Δt × speed`. If you change the speed
+  while an effect is running, the animation continues smoothly instead of jumping.
+* **`LedLayout`**: normalized position of every LED. Each zone on its own 0..1 (as with profiles),
+  matrix zones with x/y from the matrix map. On keyboards fire burns from the bottom and the music
+  effect becomes a bar chart.
+* **Effects:** rainbow wave, color cycle, breathing, fire, aurora, pulse, gradient flow and music.
+  Adjustable: speed (0.25–3×), direction (where visible), colors (up to 8) and brightness.
+* **`EffectLoop`**: frame clock with a target FPS (30/45/60, setting). If rendering falls behind,
+  ticks are skipped instead of caught up. Backpressure is handled by the conflating
+  `LedFrameStreamer` per device (with an ACK window from protocol 6). Actual FPS and render time
+  are measured.
+* **`AudioAnalyzer`**: Hann window, FFT (1024, 50 % overlap), 16 logarithmic bands from
+  40 Hz to 12 kHz, normalized to 0 dBFS, automatic gain with a lower limit, noise gate at
+  −62 dBFS and attack/release smoothing.
 
-### Ausführung (`EffectEngine`, `EffectService`)
+### Execution (`EffectEngine`, `EffectService`)
 
-* `EffectEngine` (Datenschicht) verbindet die Schleife mit allen verbundenen Geräten mit
-  Per-LED-Modus. Ziele werden nur neu aufgebaut, wenn sich die **Struktur** ändert (Gerät
-  kommt/geht, Zone ändert ihre Größe), nicht bei jedem zurückgemeldeten Frame.
-* Ein neuer Start im laufenden Effekt übernimmt Effekt, Parameter und Ziele ohne Neustart.
-* Solange ein Effekt läuft, hält die Engine ein **Keep-Alive** am `ConnectionManager`: Die
-  Verbindungen bleiben auch im Hintergrund offen.
-* Das Mikrofon wird nur aufgenommen, solange der Musik-Effekt läuft. Die Audiodaten verlassen das
-  Gerät nie; der Effekt bekommt nur 16 Pegelwerte.
-* **Manuelle Steuerung beendet den Effekt:** Farbe setzen, Profil anwenden oder einen Hardware-Modus
-  wählen stoppt ihn. Sonst würde der nächste Frame die Änderung sofort überschreiben.
-* `EffectService` (Foreground-Service, Typ `connectedDevice`, mit Mikrofon zusätzlich `microphone`)
-  hält den Prozess am Leben und zeigt die Benachrichtigung mit „Stoppen“. Er folgt nur dem Zustand
-  der Engine und beendet sich, sobald der Effekt endet.
-* **Hardware-Effekte** der Geräte (`UpdateMode`) laufen ohne Handy und ohne Netzwerklast auf dem
-  Controller. Der Effekte-Tab verweist darauf.
+* `EffectEngine` (data layer) connects the loop to all connected devices with a
+  per-LED mode. Targets are only rebuilt when the **structure** changes (a device
+  comes/goes, a zone changes its size), not on every reported frame.
+* Starting again while an effect is running takes over effect, parameters and targets without a restart.
+* While an effect is running, the engine holds a **keep-alive** on the `ConnectionManager`: the
+  connections stay open in the background too.
+* The microphone is only recorded while the music effect is running. The audio data never leaves
+  the device; the effect only receives 16 level values.
+* **Manual control ends the effect:** setting a color, applying a profile or choosing a hardware
+  mode stops it. Otherwise the next frame would overwrite the change immediately.
+* `EffectService` (foreground service, type `connectedDevice`, with the microphone additionally
+  `microphone`) keeps the process alive and shows the notification with “Stop”. It only follows
+  the engine’s state and stops itself as soon as the effect ends.
+* **Hardware effects** of the devices (`UpdateMode`) run on the controller without the phone and
+  without network load. The Effects tab points to them.
 
-## 6. Präsentation
+## 6. Presentation
 
-Jeder Screen ist ein zustandsloses `XyzScreen(state, actions)` plus eine dünne `XyzRoute`, die das
-ViewModel anbindet. So lassen sich die Screens ohne Hilt in Screenshot-Tests rendern.
-Profile und Effekte kommen als weitere Tabs hinzu, sobald sie umgesetzt sind.
+Every screen is a stateless `XyzScreen(state, actions)` plus a thin `XyzRoute` that binds the
+ViewModel. That way screens can be rendered in screenshot tests without Hilt. Profiles and effects
+are added as further tabs once they are implemented.
 
+* Compose + Material 3 with dynamic color and dark mode, `NavigationSuiteScaffold`: bottom bar on
+  phones, navigation rail on tablets, list-detail layout for devices.
+* Tabs: **Devices, Profiles, Effects, Settings**. Onboarding in three steps:
+  (1) security and feature notice, (2) start the SDK server on the PC (guide), (3) scan or manual
+  entry.
+* Color picker: color wheel + HSV sliders + hex input + favorites, live preview (throttled to the
+  target FPS).
+* Accessibility: `contentDescription`/`stateDescription` for TalkBack, touch targets ≥ 48 dp,
+  color names in addition to the color, WCAG AA contrast, haptics can be turned off.
+* Localization: `values/strings.xml` (English) and `values-de/strings.xml` (German).
 
-* Compose + Material 3 mit Dynamic Color und Dark Mode, `NavigationSuiteScaffold`: Bottom-Bar am
-  Telefon, Navigation-Rail auf Tablets, List-Detail-Layout für Geräte.
-* Tabs: **Geräte, Profile, Effekte, Einstellungen**. Onboarding in drei Schritten:
-  (1) Sicherheits- und Funktionshinweis, (2) SDK-Server am PC starten (Anleitung), (3) Scan oder manuelle Eingabe.
-* Farbwähler: Farbrad + HSV-Slider + Hex-Eingabe + Favoriten, Live-Vorschau (gedrosselt auf die Ziel-FPS).
-* Barrierefreiheit: `contentDescription`/`stateDescription` für TalkBack, Touch-Ziele ≥ 48 dp,
-  Farbnamen zusätzlich zur Farbe, Kontrast nach WCAG AA, Haptik abschaltbar.
-* Lokalisierung: `values/strings.xml` (Englisch) und `values-de/strings.xml` (Deutsch).
+## 7. Convenience features (planned)
 
-## 7. Komfortfunktionen (geplant)
+* **Foreground service** (`EffectService`, type `connectedDevice`, additionally `microphone` for
+  music) for running dynamic effects, with a notification including a stop action.
+* **Widgets** (Jetpack Glance) for favorite profiles; **quick settings tiles** (`TileService`),
+  three freely assignable slots.
+* **Schedules** via WorkManager. Execution is imprecise (± a few minutes), but no exact-alarm
+  permission is needed.
 
-* **Foreground-Service** (`EffectService`, Typ `connectedDevice`, bei Musik zusätzlich `microphone`)
-  für laufende dynamische Effekte, mit Benachrichtigung inklusive Stopp-Aktion.
-* **Widgets** (Jetpack Glance) für Lieblingsprofile; **Quick-Settings-Kacheln** (`TileService`), drei
-  frei belegbare Slots.
-* **Zeitpläne** über WorkManager. Die Ausführung ist unpräzise (±einige Minuten), dafür ist keine
-  Berechtigung für exakte Alarme nötig.
+## 8. Security
 
-## 8. Sicherheit
+The OpenRGB SDK server has **no authentication and no encryption**. Anyone on the same network
+can control all devices and read the traffic. The app therefore shows a notice in onboarding and
+in the settings to only use the server in a trusted LAN or over a VPN (e.g. WireGuard/Tailscale)
+and never to expose port 6742 to the internet. Only host and port are stored, no secrets.
+Cleartext traffic only concerns raw TCP, not HTTP; a network security config is therefore not
+needed.
 
-Der OpenRGB SDK Server hat **keine Authentifizierung und keine Verschlüsselung**. Jeder im selben
-Netz kann alle Geräte steuern und den Datenverkehr mitlesen. Die App zeigt deshalb im Onboarding
-und in den Einstellungen den Hinweis, den Server nur im vertrauenswürdigen LAN oder über ein VPN
-(z. B. WireGuard/Tailscale) zu nutzen und Port 6742 niemals ins Internet freizugeben. Gespeichert
-werden nur Host und Port, keine Geheimnisse. Cleartext-Traffic betrifft nur rohes TCP, kein HTTP;
-eine Network-Security-Config ist daher nicht nötig.
+## 9. Known limitations
 
-## 9. Bekannte Einschränkungen
-
-* **Latenz bei hohen FPS:** Jeder Frame ist ein TCP-Paket (16 B Header + 6 B + 4 B pro LED). 60 FPS
-  bei 500 LEDs ergeben ≈ 120 KB/s, für WLAN unkritisch. Spürbar sind WLAN-Jitter (Powersave des
-  Handys), die Verarbeitung im Server und die Update-Rate der Hardware selbst; viele Controller
-  (z. B. über SMBus angebundenes RAM) schaffen deutlich unter 30 Updates/s. Die Conflation hält die
-  Latenz begrenzt, dafür sinkt die effektive Framerate.
-* **Protokoll < 6:** Es gibt keine ACKs, deshalb ist Backpressure nur über den TCP-Sendepuffer
-  möglich. Änderungen anderer Clients sieht die App erst beim nächsten Neuladen.
-* **OpenRGB 1.0 nach Rescan:** Der Server ignoriert `UpdateLEDs` von Index-Clients (v ≤ 5) kurzzeitig
-  (1–3 s). Mit einem 1.0-Server spricht die App v6 und ist nicht betroffen.
-* **Gerätetyp-Mehrdeutigkeit:** Protokoll 3 (0.7 vs. 0.8) und 5 (1.0rc1 vs. rc2) verwenden für
-  „Unbekannt“ unterschiedliche Rohwerte. Aufgelöst wird zugunsten des neueren Releases, siehe `DeviceType`.
-* **Server mit Protokoll 0** werden erst nach 2 s Timeout erkannt.
-* **Netzwerk-Scan:** nur IPv4, maximal ein /22 (größere Netze: das /24 um die eigene Adresse).
-  Firewalls, die Verbindungen stumm verwerfen, verlängern den Scan; nicht antwortende Adressen
-  kosten jeweils 400 ms (64 parallel).
-* **Hintergrund:** Ohne laufenden Effekt trennt die App 30 s nach dem Verlassen. Beim Zurückkehren
-  dauert es einen Verbindungsaufbau (meist < 1 s), bis Geräte wieder erscheinen.
-  VPN-Ziele müssen manuell eingetragen werden. mDNS bietet der OpenRGB-Server nicht an.
-* **Farbsteuerung:** „Rückgängig“ stellt nur LED-Farben wieder her, nicht den vorherigen
-  Hardware-Modus und nicht Geräte ohne Per-LED-Modus. Einzelne LEDs sind nur per Antippen
-  erreichbar; TalkBack-Nutzer steuern Geräte und Zonen. Diagonale Modus-Richtungen (nur
-  Protokoll 6) werden angezeigt, aber nicht zur Auswahl angeboten.
-* **Musik-Effekt:** Android erlaubt nur das Mikrofon, nicht das Mithören anderer Apps (das ginge
-  nur mit Bildschirmaufnahme-Zustimmung). Der Effekt reagiert daher auf den Raumklang; die
-  Latenz liegt bei etwa 30–60 ms (Analysefenster) plus Netzwerk.
-* **Effekte im Hintergrund:** Hersteller mit aggressivem Energiesparen (z. B. einige
-  Xiaomi-/Huawei-Geräte) können auch Foreground-Services drosseln. Dann muss die App in den
-  Akku-Einstellungen von der Optimierung ausgenommen werden.
-* **Effekte in Profilen:** Das JSON-Format kennt bisher nur statische Profile. Effekt-Einstellungen
-  merkt sich die App nur bis zum Neustart.
-* **Mehrere Clients gleichzeitig** (z. B. OpenRGB-GUI-Effekte und die App): Es gilt
-  „der letzte Schreiber gewinnt“. Laufende Effekte anderer Clients überschreiben die App.
+* **Latency at high FPS:** every frame is a TCP packet (16 B header + 6 B + 4 B per LED). 60 FPS
+  with 500 LEDs comes to ≈ 120 KB/s, uncritical for Wi-Fi. Noticeable are Wi-Fi jitter (the phone’s
+  power saving), processing in the server and the update rate of the hardware itself; many
+  controllers (e.g. RAM attached via SMBus) manage well under 30 updates/s. Conflation keeps
+  latency bounded, at the cost of a lower effective frame rate.
+* **Protocol < 6:** there are no ACKs, so backpressure is only possible through the TCP send
+  buffer. The app only sees changes by other clients on the next reload.
+* **OpenRGB 1.0 after a rescan:** the server briefly (1–3 s) ignores `UpdateLEDs` from index
+  clients (v ≤ 5). With a 1.0 server the app speaks v6 and is not affected.
+* **Device type ambiguity:** protocol 3 (0.7 vs. 0.8) and 5 (1.0rc1 vs. rc2) use different raw
+  values for “unknown”. It is resolved in favor of the newer release, see `DeviceType`.
+* **Servers with protocol 0** are only detected after a 2 s timeout.
+* **Network scan:** IPv4 only, at most a /22 (larger networks: the /24 around your own address).
+  Firewalls that silently drop connections make the scan slower; unresponsive addresses cost
+  400 ms each (64 in parallel).
+* **Background:** without a running effect, the app disconnects 30 s after you leave it. When you
+  return, it takes one connection setup (usually < 1 s) until devices appear again.
+  VPN targets have to be entered manually. The OpenRGB server does not offer mDNS.
+* **Color control:** “Undo” only restores LED colors, not the previous hardware mode and not
+  devices without a per-LED mode. Single LEDs can only be reached by tapping; TalkBack users
+  control devices and zones. Diagonal mode directions (protocol 6 only) are shown but not offered
+  for selection.
+* **Music effect:** Android only allows the microphone, not listening to other apps (that would
+  only work with screen-capture consent). So the effect reacts to the sound in the room; the
+  latency is about 30–60 ms (analysis window) plus network.
+* **Effects in the background:** manufacturers with aggressive power saving (e.g. some
+  Xiaomi/Huawei devices) can throttle foreground services too. Then the app has to be excluded
+  from optimization in the battery settings.
+* **Effects in profiles:** the JSON format only knows static profiles so far. The app only
+  remembers effect settings until it restarts.
+* **Multiple clients at the same time** (e.g. OpenRGB GUI effects and the app): “last writer
+  wins”. Running effects of other clients overwrite the app.

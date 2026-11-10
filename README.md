@@ -1,93 +1,95 @@
 # OpenRGB Remote (Android)
 
-Inoffizieller, moderner Android-Client für den [OpenRGB](https://openrgb.org) SDK Server.
-Er steuert RGB-Beleuchtung an PCs im Netzwerk, auf denen OpenRGB mit aktiviertem SDK-Server
-läuft (Standardport **6742**).
+*English · [Deutsch](README.de.md)*
 
-> ⚠️ **Sicherheit:** Der OpenRGB SDK Server hat keine Authentifizierung. Nutze ihn nur im
-> vertrauenswürdigen LAN oder über ein VPN und gib Port 6742 nie ins Internet frei.
+An unofficial, modern Android client for the [OpenRGB](https://openrgb.org) SDK server.
+It controls RGB lighting on PCs in your network that run OpenRGB with the SDK server enabled
+(default port **6742**).
 
-## Stand
+> ⚠️ **Security:** the OpenRGB SDK server has no authentication. Only use it in a trusted LAN
+> or over a VPN, and never expose port 6742 to the internet.
 
-| Schritt | Status |
+## Status
+
+| Step | Status |
 |---|---|
-| 1. Architektur & Projektstruktur | ✅ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| 2a. Protokoll-Modul `:openrgb-sdk` (v0–6, Reconnect, Backpressure, Scan) | ✅ |
-| 2b. Verbindungen, Netzwerk-Scan, Geräteliste, Detailansicht, Onboarding (App) | ✅ |
-| 2c. Farbsteuerung (Farbrad, HSV, Hex, Favoriten, Ziele, Live-Vorschau) und Hardware-Modi | ✅ |
-| 2d. Profile (8 vorgefertigte, eigene, Duplizieren, JSON-Import/-Export, global oder pro Gerät) | ✅ |
-| 2e. Effekt-Engine (8 Effekte inkl. Musik), Foreground-Service, Effekte-Tab | ✅ |
-| 2f. UI-Feinschliff, Widgets, Kacheln | ⏳ |
+| 1. Architecture & project structure | ✅ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| 2a. Protocol module `:openrgb-sdk` (v0–6, reconnect, backpressure, scan) | ✅ |
+| 2b. Connections, network scan, device list, detail view, onboarding (app) | ✅ |
+| 2c. Color control (color wheel, HSV, hex, favorites, targets, live preview) and hardware modes | ✅ |
+| 2d. Profiles (8 presets, custom, duplicate, JSON import/export, global or per device) | ✅ |
+| 2e. Effects engine (8 effects incl. music), foreground service, Effects tab | ✅ |
+| 2f. UI polish, widgets, tiles | ⏳ |
 
 ## Screenshots
 
-Gerendert von den Robolectric-Screenshot-Tests (`app/src/test/.../ScreenshotTest.kt`). Die Gerätedaten
-stammen aus echten Paketen eines OpenRGB-1.0-Servers; die Farben sind zur Demonstration gesetzt,
-weil Debug-Geräte alle LEDs als schwarz melden.
+Rendered by the Robolectric screenshot tests (`app/src/test/.../ScreenshotTest.kt`). The device
+data comes from real packets of an OpenRGB 1.0 server; the colors are set for demonstration,
+because debug devices report all LEDs as black. The screenshots show the German UI.
 
-| Geräte | Detail (Tastatur-Matrix) | Onboarding: Verbinden | Fehlermeldung |
+| Devices | Detail (keyboard matrix) | Onboarding: connect | Error message |
 |---|---|---|---|
 | ![](docs/screenshots/devices_phone_de.png) | ![](docs/screenshots/device_detail_keyboard_de.png) | ![](docs/screenshots/onboarding_3_connect_de.png) | ![](docs/screenshots/server_edit_failure_de.png) |
 
-| Farbsteuerung | Hardware-Modus |
+| Color control | Hardware mode |
 |---|---|
 | ![](docs/screenshots/color_all_de.png) | ![](docs/screenshots/device_detail_modes_de.png) |
 
-| Profile | Profil-Editor |
+| Profiles | Profile editor |
 |---|---|
 | ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) |
 
-| Effekte | Effekt-Einstellungen |
+| Effects | Effect settings |
 |---|---|
 | ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
 
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
 
-## Bauen & Testen
+## Build & test
 
-Voraussetzungen: JDK 17+, Android SDK (Plattform 37) mit `ANDROID_HOME` oder `local.properties`.
-Der Gradle-Wrapper lädt Gradle 9.9 automatisch.
+Requirements: JDK 17+, Android SDK (platform 37) with `ANDROID_HOME` or `local.properties`.
+The Gradle wrapper downloads Gradle 9.9 automatically.
 
 ```bash
 ./gradlew :app:assembleDebug                      # APK
-./gradlew test :core:data:testDebugUnitTest :app:testDebugUnitTest   # alle Unit-Tests
-./gradlew :app:lintDebug                          # Lint (Warnungen gelten als Fehler)
+./gradlew test :core:data:testDebugUnitTest :app:testDebugUnitTest   # all unit tests
+./gradlew :app:lintDebug                          # lint (warnings are errors)
 ```
 
-Die Screenshot-Tests schreiben PNGs nach `app/build/screenshots/`. Robolectric läuft offline:
-seine Android-Laufzeit wird über Gradle aufgelöst (siehe `app/build.gradle.kts`).
+The screenshot tests write PNGs to `app/build/screenshots/`. Robolectric runs offline: its
+Android runtime is resolved through Gradle (see `app/build.gradle.kts`).
 
-Texte stehen in `tools/strings_app.py` (Englisch + Deutsch) und werden mit
-`python3 tools/strings_app.py` nach `app/src/main/res/values*/strings.xml` generiert. So fehlt nie
-ein Schlüssel in einer der Sprachen.
+Strings live in `tools/strings_app.py` (English + German) and are generated into
+`app/src/main/res/values*/strings.xml` with `python3 tools/strings_app.py`. That way no key is ever
+missing in one of the languages.
 
-### Tests gegen einen echten OpenRGB-Server
+### Tests against a real OpenRGB server
 
 ```bash
-# PC mit OpenRGB: "SDK Server" starten (GUI) oder headless:
+# PC with OpenRGB: start the "SDK Server" (GUI) or headless:
 openrgb --server --server-port 6742
 
 OPENRGB_TEST_SERVER=192.168.1.20:6742 ./gradlew :openrgb-sdk:test
 ```
 
-Die Fixtures unter `openrgb-sdk/src/testFixtures/resources/fixtures/openrgb-1.0` wurden mit
-`tools/capture_fixtures.py` von einem OpenRGB-1.0-Server mit Debug-Geräten mitgeschnitten
-(Anleitung im Skriptkopf).
+The fixtures in `openrgb-sdk/src/testFixtures/resources/fixtures/openrgb-1.0` were captured with
+`tools/capture_fixtures.py` from an OpenRGB 1.0 server with debug devices (instructions in the
+script header).
 
-## SDK-Beispiel
+## SDK example
 
 ```kotlin
 val client = OpenRgbClient("192.168.1.20")
-client.connect()                                   // handelt Protokoll v0–6 aus
+client.connect()                                   // negotiates protocol v0–6
 val keyboard = client.devices.value.first { it.type == DeviceType.KEYBOARD }
 keyboard.directModeIndex()?.let { client.updateMode(keyboard.id, it, keyboard.modes[it]) }
 client.updateLeds(keyboard.id, IntArray(keyboard.ledCount) { 0xFF0040 })
 client.close()
 ```
 
-Mit automatischem Reconnect: `OpenRgbConnection(host, port, scope).start()`.
+With automatic reconnect: `OpenRgbConnection(host, port, scope).start()`.
 
-## Lizenz-Hinweis
+## License note
 
-OpenRGB ist ein eigenständiges GPL-Projekt; diese App ist nicht damit verbunden. Das Protokoll
-wurde anhand der öffentlichen SDK-Dokumentation implementiert; es wird kein OpenRGB-Code verwendet.
+OpenRGB is an independent GPL project; this app is not affiliated with it. The protocol was
+implemented from the public SDK documentation; no OpenRGB code is used.
