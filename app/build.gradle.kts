@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.openrgbremote"
+    namespace = "dev.eno2.openrgbremote"
     compileSdk = 37
 
     defaultConfig {

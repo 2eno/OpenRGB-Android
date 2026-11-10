@@ -20,7 +20,7 @@ Server und keine lokale Hardwaresteuerung.
 ```
 OpenRGB-Android/
 ├── openrgb-sdk/                 ✅ Kotlin/JVM – Protokoll, Client, Reconnect, Discovery
-│   └── src/main/kotlin/io/github/openrgbremote/sdk/
+│   └── src/main/kotlin/dev/eno2/openrgbremote/sdk/
 │       ├── protocol/            Header, Paket-IDs, LE-Reader/Writer, DeviceCodec, Requests, Responses
 │       ├── model/               OpenRgbDevice, Zone, DeviceMode, Segment, Led, MatrixMap, RgbColor, DeviceType
 │       ├── transport/           PacketTransport (Interface), SocketTransport
@@ -32,7 +32,7 @@ OpenRGB-Android/
 │   ├── data/                    ✅ Android-Lib – Room, DataStore, ConnectionManager (mehrere PCs), Scan, Hilt
 │   └── designsystem/            ✅ Android-Lib – Material-3-Theme, Gerätesymbole, LED-Darstellung und Farbwähler
 ├── app/                         ✅ Android-App (Geräte, Detail, Farbe, Modi, Profile, PCs, Scan, Einstellungen, Onboarding; Rest ⏳)
-│   └── src/main/kotlin/io/github/openrgbremote/
+│   └── src/main/kotlin/dev/eno2/openrgbremote/
 │       ├── feature/onboarding/  Drei-Schritte-Onboarding inkl. Anleitung „SDK-Server starten“
 │       ├── feature/devices/     Geräteübersicht, Detailansicht (Zonen/LEDs), Farbsteuerung
 │       ├── feature/profiles/    Statische und eigene Profile, Import/Export

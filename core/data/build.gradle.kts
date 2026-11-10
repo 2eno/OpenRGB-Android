@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.openrgbremote.core.data"
+    namespace = "dev.eno2.openrgbremote.core.data"
     compileSdk = 37
     defaultConfig {
         minSdk = 26
