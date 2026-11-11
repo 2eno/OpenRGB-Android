@@ -1,6 +1,7 @@
 package dev.eno2.openrgbremote
 
 import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
+import dev.eno2.openrgbremote.core.domain.testing.FakeSshCredentials
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.effects.EffectId
 import androidx.lifecycle.SavedStateHandle
@@ -31,13 +32,14 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ViewModelTest {
     private val effects = FakeEffectController()
+    private val sshCredentials = FakeSshCredentials()
     @get:Rule val main = MainDispatcherRule()
 
     private val servers = FakeServerRepository(listOf(Server(1, "Desk", "192.168.1.30", 6742, autoConnect = false, createdAtMillis = 5)))
     private val connections = FakeConnectionRepository()
 
     private fun editViewModel(vararg args: Pair<String, Any?>) =
-        ServerEditViewModel(SavedStateHandle(mapOf(*args)), servers, connections, SaveServer(servers), ValidateServerInput())
+        ServerEditViewModel(SavedStateHandle(mapOf(*args)), servers, connections, SaveServer(servers), ValidateServerInput(), sshCredentials)
 
     @Test
     fun `edit form loads an existing server`() = runTest {

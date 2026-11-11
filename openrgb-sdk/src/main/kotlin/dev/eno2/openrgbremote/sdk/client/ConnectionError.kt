@@ -38,6 +38,29 @@ public enum class ConnectionErrorReason {
 
     /** Anything else. */
     UNKNOWN,
+
+    /** SSH jump host: not reachable (wrong address, port, offline, no SSH server). */
+    JUMP_HOST_UNREACHABLE,
+
+    /** SSH jump host: user name, password or key rejected. */
+    JUMP_HOST_AUTH_FAILED,
+
+    /** SSH jump host: its host key has not been confirmed yet. */
+    JUMP_HOST_KEY_UNKNOWN,
+
+    /** SSH jump host: it presented a different key than the confirmed one (reinstalled, or an attack). */
+    JUMP_HOST_KEY_CHANGED,
+
+    /** SSH jump host: logged in, but it could not connect on to the OpenRGB server (or forwarding is disabled). */
+    JUMP_TARGET_UNREACHABLE,
+    ;
+
+    /**
+     * Retrying cannot help, so the connection gives up at once. For a rejected login this also
+     * protects the user: repeated failed logins get an address banned by tools like fail2ban.
+     */
+    public val isPermanent: Boolean
+        get() = this == JUMP_HOST_AUTH_FAILED || this == JUMP_HOST_KEY_UNKNOWN || this == JUMP_HOST_KEY_CHANGED
 }
 
 /** A classified connection error, keeping the original cause for logs. */

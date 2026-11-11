@@ -60,6 +60,6 @@ class DatabaseMigrationTest {
     }
 
     private companion object {
-        const val CURRENT = 5
+        const val CURRENT = 6
     }
 }

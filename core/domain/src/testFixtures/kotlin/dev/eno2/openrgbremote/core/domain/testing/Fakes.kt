@@ -18,6 +18,8 @@ import dev.eno2.openrgbremote.sdk.model.DeviceMode
 import dev.eno2.openrgbremote.core.domain.model.ConnectionTestResult
 import dev.eno2.openrgbremote.core.domain.model.ScanUpdate
 import dev.eno2.openrgbremote.core.domain.model.Server
+import dev.eno2.openrgbremote.core.domain.model.JumpHost
+import dev.eno2.openrgbremote.core.domain.repository.SshCredentialRepository
 import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import dev.eno2.openrgbremote.core.domain.model.Schedule
 import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
@@ -37,7 +39,8 @@ class FakeServerRepository(initial: List<Server> = emptyList()) : ServerReposito
 
     override fun observeServers(): Flow<List<Server>> = servers
     override suspend fun getServer(id: Long) = servers.value.firstOrNull { it.id == id }
-    override suspend fun findByAddress(host: String, port: Int) = servers.value.firstOrNull { it.host == host && it.port == port }
+    override suspend fun findByAddress(host: String, port: Int, jumpHost: String?) =
+        servers.value.firstOrNull { it.host == host && it.port == port && it.jumpHost?.host == jumpHost }
     override suspend fun save(server: Server): Long {
         val id = if (server.id == 0L) nextId++ else server.id
         servers.update { list -> list.filterNot { it.id == id } + server.copy(id = id) }
@@ -57,7 +60,13 @@ class FakeConnectionRepository : ConnectionRepository {
     override fun retry(serverId: Long) { calls += "retry $serverId" }
     override suspend fun refreshAll() { calls += "refreshAll" }
     override suspend fun rescanHardware(serverId: Long): Boolean { calls += "rescan $serverId"; return true }
-    override suspend fun testConnection(host: String, port: Int) = testResult.also { calls += "test $host:$port" }
+    override suspend fun testConnection(host: String, port: Int, jumpHost: JumpHost?, password: String?, serverId: Long): ConnectionTestResult {
+        calls += "test $host:$port" + (jumpHost?.let { " via ${it.username}@${it.address} ${it.auth} key=${it.hostKey?.type} pw=$password" } ?: "")
+        return testResults.removeFirstOrNull() ?: testResult
+    }
+
+    /** Results for the next tests, in order; [testResult] afterwards. */
+    val testResults = ArrayDeque<ConnectionTestResult>()
 }
 
 class FakeDiscoveryRepository(private val updates: List<ScanUpdate>) : DiscoveryRepository {
@@ -162,4 +171,13 @@ class FakeScheduleRepository(initial: List<Schedule> = emptyList()) : ScheduleRe
         return id
     }
     override suspend fun delete(id: Long) = schedules.update { list -> list.filterNot { it.id == id } }
+}
+
+class FakeSshCredentials(private val publicKey: String = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey openrgb-remote") : SshCredentialRepository {
+    val passwords = mutableMapOf<Long, String>()
+    override suspend fun appPublicKey() = publicKey
+    override suspend fun password(serverId: Long) = passwords[serverId]
+    override suspend fun setPassword(serverId: Long, password: String?) {
+        if (password == null) passwords.remove(serverId) else passwords[serverId] = password
+    }
 }

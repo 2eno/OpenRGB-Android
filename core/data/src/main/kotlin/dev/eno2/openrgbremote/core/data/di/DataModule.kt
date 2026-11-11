@@ -25,6 +25,11 @@ import dev.eno2.openrgbremote.core.data.db.ScheduleDao
 import dev.eno2.openrgbremote.core.data.repository.RoomScheduleRepository
 import dev.eno2.openrgbremote.core.data.settings.DataStoreQuickActionRepository
 import dev.eno2.openrgbremote.core.data.effects.DataStoreEffectParamsStore
+import dev.eno2.openrgbremote.core.data.ssh.KeystoreSecretStore
+import dev.eno2.openrgbremote.core.data.ssh.SecretStore
+import dev.eno2.openrgbremote.core.data.ssh.SshCredentials
+import dev.eno2.openrgbremote.core.data.ssh.SshJumpTransports
+import dev.eno2.openrgbremote.core.domain.repository.SshCredentialRepository
 import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
 import dev.eno2.openrgbremote.core.domain.repository.ScheduleRepository
 import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
@@ -169,7 +174,23 @@ object DataModule {
         networkMonitor: NetworkMonitor,
         @ApplicationScope scope: CoroutineScope,
         config: OpenRgbClientConfig,
-    ): ConnectionManager = ConnectionManager(servers, networkMonitor, scope, config, startInForeground = false)
+        credentials: SshCredentials,
+    ): ConnectionManager = ConnectionManager(
+        servers, networkMonitor, scope, config,
+        startInForeground = false,
+        jumpTransports = SshJumpTransports(credentials),
+    )
+
+    @Provides
+    @Singleton
+    fun secretStore(@ApplicationContext context: Context): SecretStore = KeystoreSecretStore(context)
+
+    @Provides
+    @Singleton
+    fun sshCredentials(store: SecretStore): SshCredentials = SshCredentials(store)
+
+    @Provides
+    fun sshCredentialRepository(credentials: SshCredentials): SshCredentialRepository = credentials
 
     @Provides
     fun keepAlive(connections: ConnectionManager): ConnectionKeepAlive = connections

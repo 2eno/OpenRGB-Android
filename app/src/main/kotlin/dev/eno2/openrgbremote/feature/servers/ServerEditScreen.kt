@@ -48,6 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.eno2.openrgbremote.R
+import dev.eno2.openrgbremote.core.domain.model.SshAuth
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import dev.eno2.openrgbremote.core.domain.usecase.HostError
 import dev.eno2.openrgbremote.core.domain.usecase.PortError
 import dev.eno2.openrgbremote.ui.common.ProblemCard
@@ -66,6 +70,14 @@ data class ServerFormActions(
     val onAutoConnect: (Boolean) -> Unit = {},
     val onTest: () -> Unit = {},
     val onSave: () -> Unit = {},
+    val onUseJumpHost: (Boolean) -> Unit = {},
+    val onJumpHost: (String) -> Unit = {},
+    val onJumpPort: (String) -> Unit = {},
+    val onJumpUser: (String) -> Unit = {},
+    val onJumpAuth: (SshAuth) -> Unit = {},
+    val onJumpPassword: (String) -> Unit = {},
+    val onTrustHostKey: () -> Unit = {},
+    val onRejectHostKey: () -> Unit = {},
 )
 
 fun ServerEditViewModel.formActions() = ServerFormActions(
@@ -75,6 +87,14 @@ fun ServerEditViewModel.formActions() = ServerFormActions(
     onAutoConnect = ::onAutoConnectChange,
     onTest = ::testConnection,
     onSave = ::save,
+    onUseJumpHost = ::onUseJumpHostChange,
+    onJumpHost = ::onJumpHostChange,
+    onJumpPort = ::onJumpPortChange,
+    onJumpUser = ::onJumpUserChange,
+    onJumpAuth = ::onJumpAuthChange,
+    onJumpPassword = ::onJumpPasswordChange,
+    onTrustHostKey = ::trustHostKey,
+    onRejectHostKey = ::rejectHostKey,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,12 +134,26 @@ fun ServerForm(state: ServerEditUiState, actions: ServerFormActions, modifier: M
             else -> Unit
         }
     }
+    val context = LocalContext.current
+    // Android 13+ confirms copies itself; older versions get a short toast.
+    val onCopied: (String) -> Unit = { text -> if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ListItem(
+            headlineContent = { Text(stringResource(R.string.edit_jump_switch)) },
+            supportingContent = { Text(stringResource(R.string.edit_jump_switch_supporting)) },
+            trailingContent = { Switch(checked = state.useJumpHost, onCheckedChange = actions.onUseJumpHost) },
+        )
+        AnimatedVisibility(state.useJumpHost) {
+            JumpHostFields(state, actions, onCopied)
+        }
+        val viaJump = state.useJumpHost
         OutlinedTextField(
             value = state.host,
             onValueChange = actions.onHost,
-            label = { Text(stringResource(R.string.edit_host)) },
-            supportingText = { Text(state.hostError?.let { stringResource(it.messageRes()) } ?: stringResource(R.string.edit_host_supporting)) },
+            label = { Text(stringResource(if (viaJump) R.string.edit_host_via_jump else R.string.edit_host)) },
+            supportingText = {
+                Text(state.hostError?.let { stringResource(it.messageRes()) } ?: stringResource(if (viaJump) R.string.edit_host_via_jump_supporting else R.string.edit_host_supporting))
+            },
             isError = state.hostError != null,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next, autoCorrectEnabled = false),
@@ -159,6 +193,9 @@ fun ServerForm(state: ServerEditUiState, actions: ServerFormActions, modifier: M
             )
         }
         TestResult(state.test)
+        (state.test as? TestState.UntrustedHostKey)?.let { pending ->
+            HostKeyDialog(pending.key, pending.changed, state.jumpHost.trim(), actions.onTrustHostKey, actions.onRejectHostKey)
+        }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
             OutlinedButton(onClick = actions.onTest, enabled = state.test != TestState.Running) {
@@ -205,13 +242,13 @@ private fun TestResult(test: TestState) {
     }
 }
 
-private fun HostError.messageRes(): Int = when (this) {
+internal fun HostError.messageRes(): Int = when (this) {
     HostError.EMPTY -> R.string.edit_error_host_empty
     HostError.CONTAINS_SPACES -> R.string.edit_error_host_spaces
     HostError.INVALID -> R.string.edit_error_host_invalid
 }
 
-private fun PortError.messageRes(): Int = when (this) {
+internal fun PortError.messageRes(): Int = when (this) {
     PortError.EMPTY -> R.string.edit_error_port_empty
     PortError.NOT_A_NUMBER -> R.string.edit_error_port_nan
     PortError.OUT_OF_RANGE -> R.string.edit_error_port_range

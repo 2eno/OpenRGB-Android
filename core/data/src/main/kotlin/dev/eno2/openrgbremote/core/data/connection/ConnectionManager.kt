@@ -31,6 +31,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Closeable
+import dev.eno2.openrgbremote.core.data.ssh.JumpTransports
+import dev.eno2.openrgbremote.core.data.ssh.UntrustedHostKeyException
+import dev.eno2.openrgbremote.core.domain.model.JumpHost
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Keeps connections open while held, e.g. for a widget action or a running effect. */
@@ -61,6 +64,8 @@ class ConnectionManager(
      * observer reports the foreground instead.
      */
     startInForeground: Boolean = true,
+    /** Transports for servers behind an SSH jump host. */
+    private val jumpTransports: JumpTransports = JumpTransports.Unsupported,
 ) : ConnectionRepository, ConnectionKeepAlive {
 
     private data class Overrides(val connect: Set<Long> = emptySet(), val disconnect: Set<Long> = emptySet())
@@ -133,16 +138,24 @@ class ConnectionManager(
         }
     }
 
-    override suspend fun testConnection(host: String, port: Int): ConnectionTestResult {
-        val client = OpenRgbClient(host, port, clientConfig.copy(heartbeatIntervalMillis = 0), transportFactory)
+    override suspend fun testConnection(host: String, port: Int, jumpHost: JumpHost?, password: String?, serverId: Long): ConnectionTestResult {
+        val transports = jumpHost?.let { jumpTransports.create(it, serverId, password) } ?: transportFactory
+        val client = OpenRgbClient(host, port, clientConfig.copy(heartbeatIntervalMillis = 0), transports)
+        // The SSH login and host key exchange come on top of the OpenRGB handshake.
+        val timeout = if (jumpHost != null) TEST_TIMEOUT_MILLIS + JUMP_TEST_EXTRA_MILLIS else TEST_TIMEOUT_MILLIS
         return try {
-            val result = withTimeoutOrNull(TEST_TIMEOUT_MILLIS) {
+            val result = withTimeoutOrNull(timeout) {
                 val info = client.connect()
                 ConnectionTestResult.Success(info.protocolVersion, info.serverName, info.serverHostname, client.devices.value.size)
             }
-            result ?: ConnectionTestResult.Failure(ConnectionProblem.TIMEOUT, "No answer within ${TEST_TIMEOUT_MILLIS / 1000} s")
+            result ?: ConnectionTestResult.Failure(ConnectionProblem.TIMEOUT, "No answer within ${timeout / 1000} s")
         } catch (e: OpenRgbException) {
-            ConnectionTestResult.Failure(e.error.reason.toProblem(networkMonitor.isOnline.value), e.error.message)
+            val untrusted = e.error.cause as? UntrustedHostKeyException ?: e.cause as? UntrustedHostKeyException
+            if (untrusted != null) {
+                ConnectionTestResult.UntrustedHostKey(untrusted.key, untrusted.changed)
+            } else {
+                ConnectionTestResult.Failure(e.error.reason.toProblem(networkMonitor.isOnline.value), e.error.message)
+            }
         } finally {
             client.close()
         }
@@ -202,7 +215,8 @@ class ConnectionManager(
             while (iterator.hasNext()) {
                 val (id, entry) = iterator.next()
                 val target = wanted[id]
-                if (target == null || target.host != entry.server.host || target.port != entry.server.port) {
+                // A changed jump host, login method or confirmed key needs a new connection too.
+                if (target == null || target.host != entry.server.host || target.port != entry.server.port || target.jumpHost != entry.server.jumpHost) {
                     removed += entry
                     iterator.remove()
                 }
@@ -225,7 +239,8 @@ class ConnectionManager(
     }
 
     private fun start(server: Server): Entry {
-        val connection = OpenRgbConnection(server.host, server.port, scope, clientConfig, reconnectPolicy, transportFactory)
+        val transports = server.jumpHost?.let { jumpTransports.create(it, server.id, null) } ?: transportFactory
+        val connection = OpenRgbConnection(server.host, server.port, scope, clientConfig, reconnectPolicy, transports)
         val statusJob = scope.launch {
             combine(connection.state, networkMonitor.isOnline) { state, online -> state.toStatus(online) }
                 .collect { status -> _statuses.update { it + (server.id to status) } }
@@ -246,6 +261,7 @@ class ConnectionManager(
 
     companion object {
         const val TEST_TIMEOUT_MILLIS = 8_000L
+        const val JUMP_TEST_EXTRA_MILLIS = 7_000L
 
         fun ConnectionState.toStatus(online: Boolean): ConnectionStatus = when (this) {
             ConnectionState.Idle -> ConnectionStatus.Offline
@@ -270,6 +286,11 @@ class ConnectionManager(
                 ConnectionErrorReason.PROTOCOL_ERROR -> ConnectionProblem.PROTOCOL_ERROR
                 ConnectionErrorReason.CONNECTION_LOST -> ConnectionProblem.CONNECTION_LOST
                 ConnectionErrorReason.UNKNOWN -> ConnectionProblem.UNKNOWN
+                ConnectionErrorReason.JUMP_HOST_UNREACHABLE -> ConnectionProblem.JUMP_HOST_UNREACHABLE
+                ConnectionErrorReason.JUMP_HOST_AUTH_FAILED -> ConnectionProblem.JUMP_HOST_AUTH_FAILED
+                ConnectionErrorReason.JUMP_HOST_KEY_UNKNOWN -> ConnectionProblem.JUMP_HOST_KEY_UNKNOWN
+                ConnectionErrorReason.JUMP_HOST_KEY_CHANGED -> ConnectionProblem.JUMP_HOST_KEY_CHANGED
+                ConnectionErrorReason.JUMP_TARGET_UNREACHABLE -> ConnectionProblem.JUMP_TARGET_UNREACHABLE
             }
         }
     }

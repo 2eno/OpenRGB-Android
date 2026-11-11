@@ -23,12 +23,13 @@ class SaveServer(
         host: String,
         port: String,
         autoConnect: Boolean = true,
+        jumpHost: JumpHostForm? = null,
     ): SaveServerResult {
-        val input = when (val result = validate(name, host, port)) {
+        val input = when (val result = validate(name, host, port, jumpHost)) {
             is ServerInputValidation.Invalid -> return SaveServerResult.Invalid(result)
             is ServerInputValidation.Valid -> result.input
         }
-        val existing = servers.findByAddress(input.host, input.port)
+        val existing = servers.findByAddress(input.host, input.port, input.jumpHost?.host)
         if (existing != null && existing.id != id) return SaveServerResult.Duplicate(existing)
         val previous = if (id != 0L) servers.getServer(id) else null
         val server = Server(
@@ -37,6 +38,7 @@ class SaveServer(
             host = input.host,
             port = input.port,
             autoConnect = autoConnect,
+            jumpHost = input.jumpHost,
             createdAtMillis = previous?.createdAtMillis ?: clock(),
         )
         return SaveServerResult.Saved(servers.save(server))

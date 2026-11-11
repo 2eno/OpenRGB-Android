@@ -22,4 +22,16 @@ val ConnectionProblem.text: ProblemText
         ConnectionProblem.CONNECTION_LOST -> ProblemText(R.string.problem_lost_title, R.string.problem_lost_text, R.string.problem_lost_hint)
         ConnectionProblem.NO_NETWORK -> ProblemText(R.string.problem_no_network_title, R.string.problem_no_network_text, R.string.problem_no_network_hint)
         ConnectionProblem.UNKNOWN -> ProblemText(R.string.problem_unknown_title, R.string.problem_unknown_text, R.string.problem_unknown_hint)
+        ConnectionProblem.JUMP_HOST_UNREACHABLE -> ProblemText(R.string.problem_jump_unreachable_title, R.string.problem_jump_unreachable_text, R.string.problem_jump_unreachable_hint)
+        ConnectionProblem.JUMP_HOST_AUTH_FAILED -> ProblemText(R.string.problem_jump_auth_title, R.string.problem_jump_auth_text, R.string.problem_jump_auth_hint)
+        ConnectionProblem.JUMP_HOST_KEY_UNKNOWN -> ProblemText(R.string.problem_jump_key_unknown_title, R.string.problem_jump_key_unknown_text, R.string.problem_jump_key_unknown_hint)
+        ConnectionProblem.JUMP_HOST_KEY_CHANGED -> ProblemText(R.string.problem_jump_key_changed_title, R.string.problem_jump_key_changed_text, R.string.problem_jump_key_changed_hint)
+        ConnectionProblem.JUMP_TARGET_UNREACHABLE -> ProblemText(R.string.problem_jump_target_title, R.string.problem_jump_target_text, R.string.problem_jump_target_hint)
     }
+
+/** "192.168.1.20:6742", or "127.0.0.1:6742 via zeno@pc.local:22" behind a jump host. */
+@androidx.compose.runtime.Composable
+fun serverAddressLabel(server: dev.eno2.openrgbremote.core.domain.model.Server): String {
+    val jump = server.jumpHost ?: return server.address
+    return androidx.compose.ui.res.stringResource(R.string.servers_via_jump, server.address, "${jump.username}@${jump.address}")
+}

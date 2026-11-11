@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.eno2.openrgbremote.R
+import dev.eno2.openrgbremote.ui.common.serverAddressLabel
 import dev.eno2.openrgbremote.core.designsystem.component.IconBadge
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.Server
@@ -168,7 +169,7 @@ private fun ServerCard(overview: ServerOverview, actions: ServerListActions, onD
                 IconBadge(Icons.Outlined.Computer)
                 Column(Modifier.weight(1f)) {
                     Text(server.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(server.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(serverAddressLabel(server), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 ConnectionStatusPill(overview.status)
                 Box {

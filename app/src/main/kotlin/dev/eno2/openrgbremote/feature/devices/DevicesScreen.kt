@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.eno2.openrgbremote.R
+import dev.eno2.openrgbremote.ui.common.serverAddressLabel
 import dev.eno2.openrgbremote.core.designsystem.component.EmptyState
 import dev.eno2.openrgbremote.core.designsystem.component.IconBadge
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
@@ -184,7 +185,7 @@ private fun ServerHeader(overview: ServerOverview, actions: DevicesActions) {
                     modifier = Modifier.semantics { heading() },
                 )
                 val subtitle = buildString {
-                    append(overview.server.address)
+                    append(serverAddressLabel(overview.server))
                     if (status is ConnectionStatus.Connected) {
                         status.serverName?.let { append(" · ").append(it) }
                     }

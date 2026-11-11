@@ -259,10 +259,39 @@ Profile und Effekte kommen als weitere Tabs hinzu, sobald sie umgesetzt sind.
 
 Der OpenRGB SDK Server hat **keine Authentifizierung und keine Verschlüsselung**. Jeder im selben
 Netz kann alle Geräte steuern und den Datenverkehr mitlesen. Die App zeigt deshalb im Onboarding
-und in den Einstellungen den Hinweis, den Server nur im vertrauenswürdigen LAN oder über ein VPN
-(z. B. WireGuard/Tailscale) zu nutzen und Port 6742 niemals ins Internet freizugeben. Gespeichert
-werden nur Host und Port, keine Geheimnisse. Cleartext-Traffic betrifft nur rohes TCP, kein HTTP;
-eine Network-Security-Config ist daher nicht nötig.
+und in den Einstellungen den Hinweis, den Server nur im vertrauenswürdigen LAN, über ein VPN
+(z. B. WireGuard/Tailscale) oder über einen SSH-Jump-Host zu nutzen und Port 6742 niemals ins
+Internet freizugeben. Cleartext-Traffic betrifft nur rohes TCP, kein HTTP; eine
+Network-Security-Config ist daher nicht nötig.
+
+### SSH-Jump-Host
+
+Wie `ssh -J` (oder die SSH-Verbindungen von virt-manager) meldet sich die App an einem SSH-Server
+an und öffnet von dort einen `direct-tcpip`-Kanal zu OpenRGB (`SshTunnelTransportFactory`, JSch).
+Das OpenRGB-Protokoll läuft dann verschlüsselt und erst nach einer Anmeldung, auch von außerhalb
+des Heimnetzes, und OpenRGB kann an 127.0.0.1 gebunden bleiben (Standard ab 1.0). Auf dem Handy
+wird kein lokaler Port geöffnet.
+
+* **Anmeldung:** ein von der App erzeugter Ed25519-Schlüssel (empfohlen) oder ein Passwort. Das
+  Formular bietet einen fertigen Befehl für den Jump-Host, der den öffentlichen Schlüssel mit
+  `restrict,port-forwarding,permitopen="<OpenRGB-Adresse>",command="/bin/false"` einträgt: Der
+  Schlüssel öffnet nur den Tunnel zu OpenRGB, keine Shell und keine anderen Ziele (gegen OpenSSH 9
+  geprüft).
+* **Geheimnisse:** privater Schlüssel und Passwörter werden mit AES-256-GCM und einem Schlüssel im
+  Android Keystore verschlüsselt, in eigenen SharedPreferences abgelegt und vom Backup ausgenommen.
+* **Host-Key:** Trust on first use. „Verbindung testen“ (und „Speichern“) zeigt den
+  SHA256-Fingerabdruck im Format von `ssh-keygen -lf`; erst nach der Bestätigung wird der Schlüssel
+  festgehalten und eine Anmeldung versucht. Ein später abweichender Schlüssel ist ein harter Fehler
+  (`JUMP_HOST_KEY_CHANGED`) mit Warnung.
+* **Keine Wiederholungsstürme:** Abgelehnte Anmeldung sowie unbestätigter oder geänderter Host-Key
+  sind dauerhafte Fehler: Die Verbindung stoppt, statt es erneut zu versuchen, damit fail2ban das
+  Handy nicht sperrt.
+* **Algorithmen:** JSch nutzt auf jeder Plattform BouncyCastle für Ed25519 und Curve25519 (der JCE
+  von Android fehlen sie), damit die JVM-Tests den Codepfad des Handys prüfen. Die Tests laufen
+  gegen Apache MINA SSHD (Passwort, App-Schlüssel, Pinning, Fehlerklassen, Ed25519-Host-Key mit
+  Curve25519-Schlüsseltausch) und optional gegen ein echtes OpenSSH mit OpenRGB dahinter.
+* **Grenzen:** kein ssh-agent, kein Import fremder Schlüssel, keine mehrstufigen Ketten und keine
+  Einmalcode-Abfragen (2FA); der Netzwerk-Scan findet nur Server im lokalen Netz.
 
 ## 9. Bekannte Einschränkungen
 

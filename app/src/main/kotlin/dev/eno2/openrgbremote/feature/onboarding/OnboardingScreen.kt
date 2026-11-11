@@ -78,7 +78,12 @@ import dev.eno2.openrgbremote.feature.settings.SecurityNotice
 import kotlinx.coroutines.launch
 
 private const val STEP_COUNT = 3
-const val HEADLESS_COMMAND = "openrgb --server --startminimized"
+/**
+ * Server without a window. OpenRGB 1.0 binds the SDK server to 127.0.0.1 unless told otherwise,
+ * so `--server-host 0.0.0.0` is required for the phone to reach it. `--startminimized` is not used:
+ * it implies the GUI and aborts on machines without a display (e.g. over SSH).
+ */
+const val HEADLESS_COMMAND = "openrgb --server --server-host 0.0.0.0"
 
 /**
  * Three steps to the first connection: (1) what the app does + security notice,

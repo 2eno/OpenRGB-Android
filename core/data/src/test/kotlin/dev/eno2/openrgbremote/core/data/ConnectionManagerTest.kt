@@ -35,7 +35,7 @@ class ConnectionManagerTest {
         val list = MutableStateFlow(initial)
         override fun observeServers(): Flow<List<Server>> = list
         override suspend fun getServer(id: Long) = list.value.firstOrNull { it.id == id }
-        override suspend fun findByAddress(host: String, port: Int) = list.value.firstOrNull { it.host == host && it.port == port }
+        override suspend fun findByAddress(host: String, port: Int, jumpHost: String?) = list.value.firstOrNull { it.host == host && it.port == port && it.jumpHost?.host == jumpHost }
         override suspend fun save(server: Server): Long { list.update { l -> l.filterNot { it.id == server.id } + server }; return server.id }
         override suspend fun delete(id: Long) = list.update { l -> l.filterNot { it.id == id } }
     }
@@ -130,6 +130,8 @@ class ConnectionManagerTest {
         manager.awaitStatus(1) { it is ConnectionStatus.Reconnecting } // now waiting 60 s
 
         network.isOnline.value = false
+        // StateFlow conflates: flipping back at once could be seen as "no change" under load.
+        manager.awaitStatus(1) { (it as? ConnectionStatus.Reconnecting)?.problem == ConnectionProblem.NO_NETWORK }
         FakeOpenRgbServer(6, fixedPort = port).also { fakes += it } // the PC is back ...
         network.isOnline.value = true // ... and so is Wi-Fi: no 60 s wait
         manager.awaitStatus(1) { it is ConnectionStatus.Connected }

@@ -14,6 +14,7 @@ import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import dev.eno2.openrgbremote.core.domain.model.Schedule
 import dev.eno2.openrgbremote.core.domain.model.ScanUpdate
 import dev.eno2.openrgbremote.core.domain.model.Server
+import dev.eno2.openrgbremote.core.domain.model.JumpHost
 import dev.eno2.openrgbremote.sdk.model.OpenRgbDevice
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 interface ServerRepository {
     fun observeServers(): Flow<List<Server>>
     suspend fun getServer(id: Long): Server?
-    suspend fun findByAddress(host: String, port: Int): Server?
+    /** The server with this OpenRGB address behind the same jump host ([jumpHost] null: direct). */
+    suspend fun findByAddress(host: String, port: Int, jumpHost: String? = null): Server?
 
     /** Inserts ([Server.id] == 0) or updates; returns the id. */
     suspend fun save(server: Server): Long
@@ -47,8 +49,22 @@ interface ConnectionRepository {
     /** Asks the server to re-detect its hardware (protocol 5+). Returns false if unsupported or offline. */
     suspend fun rescanHardware(serverId: Long): Boolean
 
-    /** One-off handshake with an unsaved address, used by the "test connection" button. */
-    suspend fun testConnection(host: String, port: Int): ConnectionTestResult
+    /**
+     * One-off handshake with an unsaved address, used by the "test connection" button. Through a
+     * [jumpHost], [password] is the one typed in the form (the saved one is used when null).
+     */
+    suspend fun testConnection(host: String, port: Int, jumpHost: JumpHost? = null, password: String? = null, serverId: Long = 0): ConnectionTestResult
+}
+
+/** Secrets for SSH jump hosts, kept encrypted on the device. */
+interface SshCredentialRepository {
+    /** The app's own public key in authorized_keys format; created on first use. */
+    suspend fun appPublicKey(): String
+
+    suspend fun password(serverId: Long): String?
+
+    /** Stores the password of [serverId]; null removes it. */
+    suspend fun setPassword(serverId: Long, password: String?)
 }
 
 /** Finds OpenRGB servers in the local network. */

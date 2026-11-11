@@ -1,5 +1,7 @@
 package dev.eno2.openrgbremote
 
+import dev.eno2.openrgbremote.core.domain.model.SshAuth
+import dev.eno2.openrgbremote.core.domain.model.SshHostKey
 import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
 import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import dev.eno2.openrgbremote.core.domain.model.Schedule
@@ -223,6 +225,53 @@ class ScreenshotTest {
     fun server_edit_failure_de() = capture("server_edit_failure_de", "+de") {
         ServerEditScreen(
             ServerEditUiState(name = "", host = "192.168.1.35", test = TestState.Failure(ConnectionProblem.CONNECTION_REFUSED, "refused")),
+            ServerFormActions(),
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun server_edit_jump_key_de() = capture("server_edit_jump_key_de", "de-w411dp-h1500dp-xxhdpi") {
+        ServerEditScreen(
+            ServerEditUiState(
+                name = "Gaming-PC", host = "127.0.0.1", useJumpHost = true, jumpHost = "gaming-pc.fritz.box", jumpUser = "zeno",
+                appPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFIKvWMi7X2M3Is4K63dprdVvVf80wljCW3HwaPBDjbn openrgb-remote@android",
+                jumpHostKey = jumpHostKey,
+                test = TestState.Success(ConnectionTestResult.Success(6, "OpenRGB 1.0", "gaming-pc", 6)),
+            ),
+            ServerFormActions(),
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun server_edit_jump_password_en_dark() = capture("server_edit_jump_password_en_dark", "en-w411dp-h1200dp-night-xxhdpi", dark = true) {
+        ServerEditScreen(
+            ServerEditUiState(
+                name = "Living room", host = "192.168.1.35", useJumpHost = true, jumpHost = "pi.example.org", jumpPort = "2222",
+                jumpUser = "pi", jumpAuth = SshAuth.PASSWORD, hasSavedPassword = true,
+                test = TestState.Failure(ConnectionProblem.JUMP_TARGET_UNREACHABLE, "pi.example.org:2222 could not connect to 192.168.1.35:6742"),
+            ),
+            ServerFormActions(),
+            onBack = {},
+        )
+    }
+
+    private val jumpHostKey = SshHostKey("ssh-ed25519", "AAAAC3NzaC1lZDI1NTE5AAAAIHzPJK0H0Czs/WWP9M2Jvozk91qwAP9JiaUmIiwTIFll")
+
+    @Test
+    fun hostkey_new_de() = capture("hostkey_new_de", "+de") {
+        ServerEditScreen(
+            ServerEditUiState(host = "127.0.0.1", useJumpHost = true, jumpHost = "gaming-pc.fritz.box", jumpUser = "zeno", test = TestState.UntrustedHostKey(jumpHostKey, changed = false)),
+            ServerFormActions(),
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun hostkey_changed_en() = capture("hostkey_changed_en", "+en") {
+        ServerEditScreen(
+            ServerEditUiState(host = "127.0.0.1", useJumpHost = true, jumpHost = "gaming-pc.fritz.box", jumpUser = "zeno", test = TestState.UntrustedHostKey(jumpHostKey, changed = true)),
             ServerFormActions(),
             onBack = {},
         )

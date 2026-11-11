@@ -40,7 +40,7 @@ class LightingControllerTest {
     private class Servers(val server: Server) : ServerRepository {
         override fun observeServers(): Flow<List<Server>> = MutableStateFlow(listOf(server))
         override suspend fun getServer(id: Long) = server
-        override suspend fun findByAddress(host: String, port: Int) = server
+        override suspend fun findByAddress(host: String, port: Int, jumpHost: String?) = server
         override suspend fun save(server: Server) = server.id
         override suspend fun delete(id: Long) = Unit
     }

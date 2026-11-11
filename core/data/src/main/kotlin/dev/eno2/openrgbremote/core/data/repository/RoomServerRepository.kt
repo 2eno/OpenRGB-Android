@@ -13,7 +13,8 @@ class RoomServerRepository @Inject constructor(private val dao: ServerDao) : Ser
 
     override suspend fun getServer(id: Long): Server? = dao.get(id)?.toDomain()
 
-    override suspend fun findByAddress(host: String, port: Int): Server? = dao.findByAddress(host, port)?.toDomain()
+    override suspend fun findByAddress(host: String, port: Int, jumpHost: String?): Server? =
+        dao.findByAddress(host, port, jumpHost.orEmpty())?.toDomain()
 
     override suspend fun save(server: Server): Long =
         if (server.id == 0L) {

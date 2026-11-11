@@ -11,6 +11,11 @@ enum class ConnectionProblem {
     CONNECTION_LOST,
     NO_NETWORK,
     UNKNOWN,
+    JUMP_HOST_UNREACHABLE,
+    JUMP_HOST_AUTH_FAILED,
+    JUMP_HOST_KEY_UNKNOWN,
+    JUMP_HOST_KEY_CHANGED,
+    JUMP_TARGET_UNREACHABLE,
 }
 
 /** Connection state of one saved server. */

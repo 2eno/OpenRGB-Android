@@ -22,6 +22,7 @@ läuft (Standardport **6742**).
 | 2f. Favoriten-Widget, 3 Schnelleinstellungs-Kacheln, Zeitpläne, Barrierefreiheits-Prüfung | ✅ |
 | 2g. Animierte Profile (Effekte in Profilen), Effekt-Einstellungen bleiben über Neustarts erhalten | ✅ |
 | 2h. CI: Tests, Lint, Debug- und Release-APK, GitHub-Releases | ✅ [![Build](https://github.com/2eno/OpenRGB-Android/actions/workflows/build.yml/badge.svg)](https://github.com/2eno/OpenRGB-Android/actions/workflows/build.yml) |
+| 2i. SSH-Jump-Host (App-Schlüssel oder Passwort, festgehaltener Host-Key, eingeschränkter Tunnel) | ✅ |
 
 ## Screenshots
 
@@ -49,7 +50,43 @@ weil Debug-Geräte alle LEDs als schwarz melden.
 |---|---|---|---|
 | ![](docs/screenshots/quick_actions_de.png) | ![](docs/screenshots/schedules_de.png) | ![](docs/screenshots/schedule_edit_de.png) | ![](docs/screenshots/quick_actions_en_large_font.png) |
 
+| SSH-Jump-Host | Fingerabdruck bestätigen |
+|---|---|
+| ![](docs/screenshots/server_edit_jump_key_de.png) | ![](docs/screenshots/hostkey_new_de.png) |
+
 Tablet: ![](docs/screenshots/devices_tablet_de.png) ![](docs/screenshots/color_tablet_de.png)
+
+## OpenRGB auf dem PC starten
+
+OpenRGB 1.0 bindet den SDK-Server ohne weitere Angabe an **127.0.0.1**, das Handy erreicht ihn dann nicht.
+
+* **Mit Desktop:** In OpenRGB im Tab „SDK Server“ „Server Host“ auf `0.0.0.0` setzen und „Start
+  Server“ klicken. `"Server": {"default_host": "0.0.0.0"}` in `~/.config/OpenRGB/OpenRGB.json`
+  speichert das dauerhaft.
+* **Ohne Display** (headless, per SSH): `openrgb --server --server-host 0.0.0.0`.
+  Kein `--startminimized` anhängen: Das startet die GUI und bricht mit
+  „could not connect to display“ / „Qt platform plugin xcb“ ab.
+* **Über einen SSH-Jump-Host** (verschlüsselt, mit Anmeldung, auch von unterwegs): Das sicherere
+  `openrgb --server` reicht, denn die App verbindet sich auf dem Jump-Host mit 127.0.0.1. In der App
+  beim Hinzufügen des PCs „Über SSH-Jump-Host verbinden“ einschalten.
+
+Als Dienst, der mit der Benutzersitzung startet (`~/.config/systemd/user/openrgb.service`):
+
+```ini
+[Unit]
+Description=OpenRGB SDK server
+
+[Service]
+# "--server-host 0.0.0.0" weglassen, wenn die App über einen SSH-Jump-Host verbindet.
+ExecStart=/usr/bin/openrgb --server --server-host 0.0.0.0 --noautoconnect
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+`systemctl --user enable --now openrgb`; auf einem Rechner, an dem sich niemand anmeldet, zusätzlich
+`loginctl enable-linger $USER`. Die meisten Geräte brauchen die udev-Regeln von OpenRGB (openrgb.org/udev).
 
 ## Bauen & Testen
 
@@ -84,6 +121,10 @@ lässt Effekte auf dem Server laufen, ein zweiter Client liest die Farben zurüc
 Beleuchtung aller Geräte an diesem Server. Die beiden Befehle nacheinander ausführen, nicht in einem
 Gradle-Aufruf: Gradle würde sie parallel starten, und der SDK-Test endet mit einem Hardware-Rescan,
 der bei OpenRGB 1.0 alle LEDs zurücksetzt.
+
+Über einen SSH-Jump-Host, z. B. mit OpenRGB auf dem Jump-Host an 127.0.0.1 gebunden:
+`OPENRGB_TEST_SERVER=127.0.0.1:6742 OPENRGB_TEST_JUMP='user:passwort@pc.local:22' ./gradlew :core:data:testDebugUnitTest`
+(optional `OPENRGB_TEST_JUMP_FINGERPRINT` mit der Ausgabe von `ssh-keygen -lf`).
 
 ### CI und Releases
 

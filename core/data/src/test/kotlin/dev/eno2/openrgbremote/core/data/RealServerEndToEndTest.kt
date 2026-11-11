@@ -5,6 +5,13 @@ import dev.eno2.openrgbremote.core.data.connection.NetworkMonitor
 import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
 import dev.eno2.openrgbremote.core.data.effects.EffectEngine
 import dev.eno2.openrgbremote.core.data.lighting.LightingController
+import dev.eno2.openrgbremote.core.data.ssh.SecretStore
+import dev.eno2.openrgbremote.core.data.ssh.SshCredentials
+import dev.eno2.openrgbremote.core.data.ssh.SshJumpTransports
+import dev.eno2.openrgbremote.core.domain.model.ConnectionTestResult
+import dev.eno2.openrgbremote.core.domain.model.JumpHost
+import dev.eno2.openrgbremote.core.domain.model.SshAuth
+import dev.eno2.openrgbremote.sdk.transport.SocketTransport
 import dev.eno2.openrgbremote.core.domain.model.BuiltInProfiles
 import dev.eno2.openrgbremote.core.domain.model.ColorTarget
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
@@ -49,6 +56,11 @@ import kotlin.test.assertTrue
  * client reads the colors back from the server, so the test sees what the hardware would get.
  *
  * Runs when `OPENRGB_TEST_SERVER=host:port` is set (debug devices, see tools/capture_fixtures.py).
+ * With `OPENRGB_TEST_JUMP=user:password@host:port` everything, including the verifying client,
+ * runs through that SSH jump host, and `OPENRGB_TEST_SERVER` is the address as seen from there
+ * (e.g. 127.0.0.1:6742). The host key is confirmed on first contact; with
+ * `OPENRGB_TEST_JUMP_FINGERPRINT` (output of `ssh-keygen -lf`) it must match.
+ *
  * It changes the colors of all devices on that server. Do not run it in the same Gradle call as
  * the SDK's RealServerIntegrationTest: that one ends with a rescan, which resets all LEDs.
  */
@@ -58,7 +70,21 @@ class RealServerEndToEndTest {
         val (host, port) = it.split(':')
         host to port.toInt()
     }
+    private val jumpSpec: Pair<JumpHost, String>? = System.getenv("OPENRGB_TEST_JUMP")?.let { spec ->
+        val (login, address) = spec.split('@', limit = 2)
+        val (user, password) = login.split(':', limit = 2)
+        val (host, port) = address.split(':')
+        JumpHost(host, port.toInt(), user, SshAuth.PASSWORD) to password
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private class MemorySecrets : SecretStore {
+        private val values = java.util.concurrent.ConcurrentHashMap<String, String>()
+        override suspend fun get(name: String) = values[name]
+        override suspend fun put(name: String, value: String?) {
+            if (value == null) values.remove(name) else values[name] = value
+        }
+    }
 
     @After
     fun tearDown() = scope.cancel()
@@ -73,9 +99,20 @@ class RealServerEndToEndTest {
         assumeTrue("OPENRGB_TEST_SERVER not set", target != null)
         val (host, port) = target!!
         withTimeout(60_000) {
-            val servers = FakeServerRepository(listOf(Server(1, "Real", host, port)))
             val network = object : NetworkMonitor { override val isOnline = MutableStateFlow(true) }
-            val manager = ConnectionManager(servers, network, scope, OpenRgbClientConfig(clientName = "OpenRGB Remote end-to-end test"))
+            val clientConfig = OpenRgbClientConfig(clientName = "OpenRGB Remote end-to-end test")
+            val credentials = SshCredentials(MemorySecrets())
+            val jumpTransports = SshJumpTransports(credentials)
+            val jumpHost = jumpSpec?.let { (jump, password) ->
+                credentials.setPassword(1, password)
+                // Trust on first use, as the app does after the user compared the fingerprint.
+                val probe = ConnectionManager(FakeServerRepository(), network, scope, clientConfig, jumpTransports = jumpTransports)
+                val untrusted = assertIs<ConnectionTestResult.UntrustedHostKey>(probe.testConnection(host, port, jump, password))
+                System.getenv("OPENRGB_TEST_JUMP_FINGERPRINT")?.let { assertEquals(it, untrusted.key.fingerprint, "host key fingerprint") }
+                jump.copy(hostKey = untrusted.key)
+            }
+            val servers = FakeServerRepository(listOf(Server(1, "Real", host, port, jumpHost = jumpHost)))
+            val manager = ConnectionManager(servers, network, scope, clientConfig, jumpTransports = jumpTransports)
             val lighting = LightingController(manager, scope)
             val overviews = ObserveServerOverviews(servers, manager)
             val engine = EffectEngine(
@@ -98,7 +135,8 @@ class RealServerEndToEndTest {
             val perLed = devices.filter { it.ledCount > 0 && it.directModeIndex() != null }
             assertTrue(perLed.isNotEmpty(), "no per-LED device on the server")
 
-            OpenRgbClient(host, port, OpenRgbClientConfig(clientName = "OpenRGB Remote verifier")).use { verifier ->
+            val verifierTransport = jumpHost?.let { jumpTransports.create(it, 1, null) } ?: SocketTransport.Factory
+            OpenRgbClient(host, port, OpenRgbClientConfig(clientName = "OpenRGB Remote verifier"), verifierTransport).use { verifier ->
                 verifier.connect()
                 suspend fun colorsOf(device: OpenRgbDevice): List<Int> {
                     val id = verifier.refreshDevices().first { it.name == device.name && it.location == device.location }.id

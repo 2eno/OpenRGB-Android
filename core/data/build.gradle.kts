@@ -38,6 +38,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.hilt.android)
+    // SSH jump host. BouncyCastle provides Ed25519 and Curve25519, which Android's crypto lacks.
+    implementation(libs.jsch)
+    implementation(libs.bouncycastle.prov)
     ksp(libs.hilt.compiler)
 
     testImplementation(kotlin("test"))
@@ -47,6 +50,10 @@ dependencies {
     testImplementation(testFixtures(project(":core:domain")))
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.room.testing)
+    // A real SSH server in the tests, for the jump host tunnel.
+    testImplementation(libs.sshd.core)
+    // Lets the test server offer Ed25519 host keys like OpenSSH (the app itself uses BouncyCastle).
+    testImplementation(libs.eddsa)
 }
 
 // Same offline Robolectric runtime as in :app (see app/build.gradle.kts).

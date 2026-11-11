@@ -36,6 +36,12 @@ sealed interface ConnectionTestResult {
     ) : ConnectionTestResult
 
     data class Failure(val problem: ConnectionProblem, val detail: String) : ConnectionTestResult
+
+    /**
+     * The jump host presented a key that is not confirmed yet ([changed] false) or differs from
+     * the confirmed one ([changed] true). The user compares the fingerprint and decides.
+     */
+    data class UntrustedHostKey(val key: SshHostKey, val changed: Boolean) : ConnectionTestResult
 }
 
 /** User preferences relevant before the first connection. */

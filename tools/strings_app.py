@@ -234,7 +234,7 @@ S = {
     "problem_unknown_host_hint": ("Use the PC’s IP address (e.g. 192.168.1.20) or check the spelling.", "Verwende die IP-Adresse des PCs (z. B. 192.168.1.20) oder prüfe die Schreibweise."),
     "problem_refused_title": ("OpenRGB server is not running", "OpenRGB-Server läuft nicht"),
     "problem_refused_text": ("The PC answers, but no server is listening on this port.", "Der PC antwortet, aber auf diesem Port läuft kein Server."),
-    "problem_refused_hint": ("In OpenRGB, open the “SDK Server” tab and press “Start Server”. Also check the port.", "Öffne in OpenRGB den Tab „SDK Server“ und klicke auf „Start Server“. Prüfe auch den Port."),
+    "problem_refused_hint": ("In OpenRGB, open the “SDK Server” tab and press “Start Server”. OpenRGB 1.0 only listens on the PC itself by default: set “Server Host” to 0.0.0.0 (or start it with --server-host 0.0.0.0). Also check the port.", "Öffne in OpenRGB den Tab „SDK Server“ und klicke auf „Start Server“. OpenRGB 1.0 lauscht standardmäßig nur auf dem PC selbst: Setze „Server Host“ auf 0.0.0.0 (oder starte mit --server-host 0.0.0.0). Prüfe auch den Port."),
     "problem_timeout_title": ("No answer from the PC", "Keine Antwort vom PC"),
     "problem_timeout_text": ("The PC did not answer in time.", "Der PC hat nicht rechtzeitig geantwortet."),
     "problem_timeout_hint": ("Is the PC switched on and in the same network? Check the IP address and that the firewall allows TCP port 6742.", "Ist der PC eingeschaltet und im selben Netzwerk? Prüfe die IP-Adresse und ob die Firewall TCP-Port 6742 erlaubt."),
@@ -257,6 +257,21 @@ S = {
     "problem_unknown_text": ("An unexpected error occurred.", "Ein unerwarteter Fehler ist aufgetreten."),
     "problem_unknown_hint": ("Try again. If it keeps failing, restart OpenRGB on the PC.", "Versuche es erneut. Falls es weiter fehlschlägt, starte OpenRGB auf dem PC neu."),
     "problem_details": ("Details: %1$s", "Details: %1$s"),
+    "problem_jump_unreachable_title": ("SSH jump host not reachable", "SSH-Jump-Host nicht erreichbar"),
+    "problem_jump_unreachable_text": ("No SSH server answered at the jump host’s address.", "Unter der Adresse des Jump-Hosts antwortet kein SSH-Server."),
+    "problem_jump_unreachable_hint": ("Check the jump host’s address and SSH port, and that it is switched on and reachable from this network.", "Prüfe Adresse und SSH-Port des Jump-Hosts und ob er eingeschaltet und aus diesem Netz erreichbar ist."),
+    "problem_jump_auth_title": ("SSH login rejected", "SSH-Anmeldung abgelehnt"),
+    "problem_jump_auth_text": ("The jump host did not accept the user name, password or app key. The app does not retry on its own, so tools like fail2ban do not block your phone.", "Der Jump-Host hat Benutzername, Passwort oder App-Schlüssel nicht akzeptiert. Die App versucht es nicht selbstständig erneut, damit Tools wie fail2ban dein Handy nicht sperren."),
+    "problem_jump_auth_hint": ("Edit the PC and check the login. For the app key: is the public key in ~/.ssh/authorized_keys, and is the file only writable by you (chmod 600)?", "Bearbeite den PC und prüfe die Anmeldung. Beim App-Schlüssel: Steht der öffentliche Schlüssel in ~/.ssh/authorized_keys, und ist die Datei nur für dich beschreibbar (chmod 600)?"),
+    "problem_jump_key_unknown_title": ("Jump host not confirmed", "Jump-Host nicht bestätigt"),
+    "problem_jump_key_unknown_text": ("The fingerprint of the jump host has not been confirmed yet, so the app does not log in there.", "Der Fingerabdruck des Jump-Hosts wurde noch nicht bestätigt, deshalb meldet sich die App dort nicht an."),
+    "problem_jump_key_unknown_hint": ("Edit the PC and tap “Test connection” to confirm the fingerprint.", "Bearbeite den PC und tippe auf „Verbindung testen“, um den Fingerabdruck zu bestätigen."),
+    "problem_jump_key_changed_title": ("Jump host identity changed!", "Identität des Jump-Hosts geändert!"),
+    "problem_jump_key_changed_text": ("The jump host presented a different key than the one you confirmed. Either it was reinstalled, or someone is trying to intercept the connection.", "Der Jump-Host hat einen anderen Schlüssel als den bestätigten vorgelegt. Entweder wurde er neu installiert, oder jemand versucht, die Verbindung abzufangen."),
+    "problem_jump_key_changed_hint": ("Only if you know why it changed: edit the PC, test the connection and confirm the new fingerprint.", "Nur wenn du weißt, warum er sich geändert hat: Bearbeite den PC, teste die Verbindung und bestätige den neuen Fingerabdruck."),
+    "problem_jump_target_title": ("Jump host cannot reach OpenRGB", "Jump-Host erreicht OpenRGB nicht"),
+    "problem_jump_target_text": ("The SSH login worked, but from the jump host the OpenRGB server could not be reached.", "Die SSH-Anmeldung hat geklappt, aber vom Jump-Host aus ist der OpenRGB-Server nicht erreichbar."),
+    "problem_jump_target_hint": ("The OpenRGB address counts as seen from the jump host: 127.0.0.1 if OpenRGB runs there. Is “openrgb --server” running? “AllowTcpForwarding no” in sshd_config also blocks this.", "Die OpenRGB-Adresse gilt vom Jump-Host aus: 127.0.0.1, wenn OpenRGB dort läuft. Läuft „openrgb --server“? Auch „AllowTcpForwarding no“ in der sshd_config verhindert das."),
 
     "devices_empty_title": ("No PC added yet", "Noch kein PC hinzugefügt"),
     "devices_empty_text": ("Add a PC running OpenRGB with the SDK server enabled. The app can search your Wi-Fi, or you enter the address yourself.", "Füge einen PC hinzu, auf dem OpenRGB mit aktiviertem SDK-Server läuft. Die App kann dein WLAN durchsuchen, oder du gibst die Adresse selbst ein."),
@@ -318,6 +333,41 @@ S = {
     "edit_test_success_title": ("Connection works", "Verbindung klappt"),
     "edit_test_success_text": ("%1$s · protocol %2$d · %3$s", "%1$s · Protokoll %2$d · %3$s"),
     "edit_auto_connect_supporting": ("Connect whenever the app is open", "Verbinden, sobald die App geöffnet ist"),
+    "edit_host_via_jump": ("OpenRGB address, as seen from the jump host", "OpenRGB-Adresse, vom Jump-Host aus"),
+    "edit_host_via_jump_supporting": ("127.0.0.1 if OpenRGB runs on the jump host itself", "127.0.0.1, wenn OpenRGB auf dem Jump-Host selbst läuft"),
+    "edit_jump_switch": ("Connect through an SSH jump host", "Über SSH-Jump-Host verbinden"),
+    "edit_jump_switch_supporting": ("Encrypted and with a login, also from outside your network. OpenRGB then only needs to listen on the jump host itself.", "Verschlüsselt und mit Anmeldung, auch von unterwegs. OpenRGB muss dann nur auf dem Jump-Host selbst lauschen."),
+    "edit_jump_host": ("SSH host", "SSH-Host"),
+    "edit_jump_host_supporting": ("The computer with the SSH server, e.g. your PC or a Raspberry Pi", "Rechner mit SSH-Server, z. B. dein PC oder ein Raspberry Pi"),
+    "edit_jump_port": ("SSH port", "SSH-Port"),
+    "edit_jump_port_supporting": ("Default: 22", "Standard: 22"),
+    "edit_jump_user": ("User name", "Benutzername"),
+    "edit_error_user_empty": ("Enter the user name on the jump host.", "Gib den Benutzernamen auf dem Jump-Host ein."),
+    "edit_error_user_invalid": ("Only the user name, without spaces or “@host”.", "Nur der Benutzername, ohne Leerzeichen oder „@host“."),
+    "edit_jump_auth": ("Login", "Anmeldung"),
+    "edit_jump_auth_key": ("App key", "App-Schlüssel"),
+    "edit_jump_auth_password": ("Password", "Passwort"),
+    "edit_jump_password": ("Password", "Passwort"),
+    "edit_jump_password_new": ("Stored encrypted on this phone, never in backups.", "Wird verschlüsselt auf dem Handy gespeichert, nie im Backup."),
+    "edit_jump_password_saved": ("Saved. Leave empty to keep it.", "Gespeichert. Leer lassen, um es zu behalten."),
+    "edit_jump_password_missing": ("Enter the password.", "Gib das Passwort ein."),
+    "edit_jump_password_show": ("Show password", "Passwort anzeigen"),
+    "edit_jump_password_hide": ("Hide password", "Passwort verbergen"),
+    "edit_jump_key_title": ("Allow the app key on the jump host", "App-Schlüssel auf dem Jump-Host erlauben"),
+    "edit_jump_key_text": ("Run this command on the jump host as “%1$s”. The key only allows the tunnel to OpenRGB (%2$s): no shell, no other destinations.", "Führe diesen Befehl auf dem Jump-Host als „%1$s“ aus. Der Schlüssel erlaubt nur den Tunnel zu OpenRGB (%2$s): keine Shell, keine anderen Ziele."),
+    "edit_jump_key_copy": ("Copy command", "Befehl kopieren"),
+    "edit_jump_key_share": ("Share", "Teilen"),
+    "edit_jump_key_copied": ("Command copied", "Befehl kopiert"),
+    "edit_jump_key_loading": ("Creating the app key…", "App-Schlüssel wird erstellt…"),
+    "edit_jump_fingerprint": ("Confirmed jump host: %1$s", "Bestätigter Jump-Host: %1$s"),
+    "hostkey_title_new": ("Check the jump host", "Jump-Host prüfen"),
+    "hostkey_title_changed": ("Jump host key changed!", "Schlüssel des Jump-Hosts geändert!"),
+    "hostkey_text_new": ("First connection to %1$s. Make sure this is really your computer: compare the fingerprint with the one the jump host shows itself.", "Erste Verbindung mit %1$s. Prüfe, ob das wirklich dein Rechner ist: Vergleiche den Fingerabdruck mit dem, den der Jump-Host selbst anzeigt."),
+    "hostkey_text_changed": ("%1$s presents a different key than the one you confirmed. Only trust it if you know why, e.g. the system was reinstalled. Otherwise someone may be intercepting the connection.", "%1$s legt einen anderen Schlüssel vor als den bestätigten. Vertraue ihm nur, wenn du den Grund kennst, z. B. eine Neuinstallation. Sonst fängt womöglich jemand die Verbindung ab."),
+    "hostkey_compare": ("On the jump host:", "Auf dem Jump-Host:"),
+    "hostkey_trust": ("Trust", "Vertrauen"),
+    "hostkey_trust_changed": ("Trust new key", "Neuem Schlüssel vertrauen"),
+    "servers_via_jump": ("%1$s via %2$s", "%1$s über %2$s"),
 
     "scan_title": ("Search network", "Netzwerk durchsuchen"),
     "scan_preparing": ("Preparing search…", "Suche wird vorbereitet…"),
@@ -337,7 +387,7 @@ S = {
     "settings_servers": ("Manage PCs", "PCs verwalten"),
     "settings_section_security": ("Security", "Sicherheit"),
     "security_title": ("Use only in trusted networks", "Nur in vertrauenswürdigen Netzen verwenden"),
-    "security_text": ("The OpenRGB SDK server has no password and no encryption. Anyone in the same network can control your lighting and read the traffic. Use it only in your home network or through a VPN (e.g. WireGuard, Tailscale) and never forward port 6742 to the internet.", "Der OpenRGB SDK Server hat kein Passwort und keine Verschlüsselung. Jeder im selben Netzwerk kann deine Beleuchtung steuern und den Datenverkehr mitlesen. Nutze ihn nur im Heimnetz oder über ein VPN (z. B. WireGuard, Tailscale) und gib Port 6742 niemals ins Internet frei."),
+    "security_text": ("The OpenRGB SDK server has no password and no encryption. Anyone in the same network can control your lighting and read the traffic. Use it only in your home network, through a VPN (e.g. WireGuard, Tailscale) or through an SSH jump host, and never forward port 6742 to the internet.", "Der OpenRGB SDK Server hat kein Passwort und keine Verschlüsselung. Jeder im selben Netzwerk kann deine Beleuchtung steuern und den Datenverkehr mitlesen. Nutze ihn nur im Heimnetz, über ein VPN (z. B. WireGuard, Tailscale) oder über einen SSH-Jump-Host, und gib Port 6742 niemals ins Internet frei."),
     "settings_section_about": ("About", "Über"),
     "settings_version": ("Version", "Version"),
     "settings_protocol": ("Supported protocol", "Unterstütztes Protokoll"),
@@ -351,8 +401,8 @@ S = {
     "onboarding_security_accept": ("I understand", "Verstanden"),
     "onboarding_server_title": ("Start the OpenRGB server on your PC", "Starte den OpenRGB-Server auf deinem PC"),
     "onboarding_server_step1": ("Install OpenRGB from openrgb.org and start it.", "Installiere OpenRGB von openrgb.org und starte es."),
-    "onboarding_server_step2": ("Open the “SDK Server” tab and press “Start Server”.", "Öffne den Tab „SDK Server“ und klicke auf „Start Server“."),
-    "onboarding_server_step3": ("Optional: enable “Start Server” in OpenRGB’s settings, or start OpenRGB without a window:", "Optional: Aktiviere „Start Server“ in den Einstellungen von OpenRGB, oder starte OpenRGB ohne Fenster:"),
+    "onboarding_server_step2": ("Open the “SDK Server” tab, set “Server Host” to 0.0.0.0 and press “Start Server”. OpenRGB 1.0 otherwise only accepts connections from the PC itself.", "Öffne den Tab „SDK Server“, setze „Server Host“ auf 0.0.0.0 und klicke auf „Start Server“. Sonst nimmt OpenRGB 1.0 nur Verbindungen vom PC selbst an."),
+    "onboarding_server_step3": ("Without a desktop (e.g. over SSH), start OpenRGB without a window. Over an SSH jump host, the plain “openrgb --server” is enough and safer.", "Ohne Desktop (z. B. per SSH) startest du OpenRGB ohne Fenster. Über einen SSH-Jump-Host reicht das sicherere „openrgb --server“."),
     "onboarding_server_step4": ("Allow TCP port 6742 in the PC’s firewall for your private network.", "Erlaube TCP-Port 6742 in der Firewall des PCs für dein privates Netzwerk."),
     "onboarding_connect_title": ("Connect your PC", "Verbinde deinen PC"),
     "onboarding_connect_text": ("Pick your PC from the list or enter its address.", "Wähle deinen PC aus der Liste oder gib seine Adresse ein."),
@@ -376,12 +426,19 @@ def android_escape(text):
     return escape(text).replace("'", "\\'").replace('"', '\\"')
 
 
+# Texts that quote command line options ("--server-host"): lint's TypographyDashes would turn the
+# double hyphen into an em dash, which the shell would not understand.
+COMMAND_LINE_TEXTS = {key for key, values in S.items() if any(" --" in v for v in values)}
+
+
 def write(index, folder):
     root = os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "res", folder)
     os.makedirs(root, exist_ok=True)
-    lines = ['<?xml version="1.0" encoding="utf-8"?>', "<!-- Generated by tools/strings_app.py, edit that file instead. -->", "<resources>"]
+    lines = ['<?xml version="1.0" encoding="utf-8"?>', "<!-- Generated by tools/strings_app.py, edit that file instead. -->", '<resources xmlns:tools="http://schemas.android.com/tools">']
     for key, values in S.items():
         attr = ' translatable="false"' if key == "app_name" and index == 0 else ""
+        if key in COMMAND_LINE_TEXTS:
+            attr += ' tools:ignore="TypographyDashes"'
         if key == "app_name" and index == 1:
             continue
         lines.append(f'    <string name="{key}"{attr}>{android_escape(values[index])}</string>')

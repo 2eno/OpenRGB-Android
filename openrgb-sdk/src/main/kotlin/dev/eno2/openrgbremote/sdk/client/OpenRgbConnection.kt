@@ -150,7 +150,7 @@ public class OpenRgbConnection(
             client.close()
             _client.value = null
             failures++
-            if (failures >= policy.maxAttempts) {
+            if (failures >= policy.maxAttempts || error.reason.isPermanent) {
                 _state.value = ConnectionState.Failed(error)
                 return
             }

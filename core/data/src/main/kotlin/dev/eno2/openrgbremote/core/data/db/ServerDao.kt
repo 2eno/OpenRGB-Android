@@ -14,8 +14,8 @@ interface ServerDao {
     @Query("SELECT * FROM servers WHERE id = :id")
     suspend fun get(id: Long): ServerEntity?
 
-    @Query("SELECT * FROM servers WHERE host = :host AND port = :port LIMIT 1")
-    suspend fun findByAddress(host: String, port: Int): ServerEntity?
+    @Query("SELECT * FROM servers WHERE host = :host AND port = :port AND jump_host = :jumpHost LIMIT 1")
+    suspend fun findByAddress(host: String, port: Int, jumpHost: String): ServerEntity?
 
     @Insert
     suspend fun insert(server: ServerEntity): Long
