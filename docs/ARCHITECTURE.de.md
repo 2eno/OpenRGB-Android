@@ -135,22 +135,37 @@ bildet jede Klasse auf einen lokalisierten Text mit konkretem Lösungsvorschlag 
   zeichnet die Vorschau in der App. Jede Zone zeigt das ganze Profil, Matrix-Zonen werden
   spaltenweise eingefärbt, damit Verläufe auf Tastaturen von links nach rechts laufen. Geräte ohne
   Per-LED-Modus bekommen die erste Farbe. Vorgefertigte Profile stehen im Code (negative IDs,
-  Namen lokalisiert), eigene in Room (`profiles`, Schema 3).
+  Namen lokalisiert), eigene in Room (`profiles`).
+* **Dynamische Profile** tragen zusätzlich eine `ProfileAnimation` (Effekt, Tempo, Richtung). Beim
+  Anwenden startet der Effekt über den `EffectLauncher` (damit startet auch der Foreground-Service)
+  mit Palette und Helligkeit des Profils; Geräte ohne Per-LED-Modus bekommen die erste Farbe. Ein
+  laufender Effekt wird nahtlos übernommen, ein statisches Profil stoppt ihn vorher. Vorschauen
+  animieren mit dem Effekt-Renderer; Standbilder (Widget, Auswahllisten) zeigen ein Bild bzw. bei
+  zeitbasierten Effekten die Palette. Den Musik-Effekt gibt es nicht als Profil: Widget, Kacheln
+  und Zeitpläne können nicht nach der Mikrofon-Berechtigung fragen. „Als Profil speichern“ in den
+  Effekt-Einstellungen legt eines aus den aktuellen Einstellungen an.
+* **Profil löschen** (`DeleteProfile`) leert auch Favoriten-Slots und entfernt Zeitpläne, die es
+  verwenden, damit nichts auf ein fehlendes Profil zeigt.
 * **JSON-Austauschformat** (`JsonProfileCodec`): `format`, `schemaVersion`, `profiles[]` mit
-  `name`, `type`, `layout`, `brightness`, `colors` als Hex. Unbekannte Felder werden ignoriert,
-  eine höhere `schemaVersion` wird abgelehnt, Einträge mit unbekanntem `type` (später: dynamische
-  Profile) werden übersprungen. Import und Export laufen über den System-Dateidialog, die App
-  braucht dafür keine Speicherberechtigung.
+  `name`, `type` (`static` oder `dynamic`), `layout`, `brightness`, `colors` als Hex und bei
+  dynamischen Profilen `effect` (Effekt-ID klein geschrieben), `speed`, `reverse`. Unbekannte Felder
+  werden ignoriert, eine höhere `schemaVersion` wird abgelehnt, Einträge mit unbekanntem `type`
+  oder `effect` werden übersprungen. Schon die erste App-Version übersprang unbekannte Typen,
+  deshalb brauchten dynamische Profile keine neue Schema-Version. Import und Export laufen über den
+  System-Dateidialog, die App braucht dafür keine Speicherberechtigung.
 * **Favoriten** liegen in Room (`favorite_colors`, Schema 2 mit Auto-Migration).
 * **Stabile Geräte-Identität:** Unique-IDs (v6) gelten nur für eine Serversitzung, Indizes (v0–5)
   verschieben sich. Profile referenzieren Geräte daher über `serverId + name + location + serial`
   und werden bei jeder Verbindung neu aufgelöst.
-* **Room** (Schema 4, exportiert nach `core/data/schemas`, Auto-Migrationen 1→2→3→4): `servers`,
-  `favorite_colors`, `profiles`, `schedules` (Minute des Tages, Wochentags-Bitmaske, Aktion als Text
-  wie `profile:-1` oder `off`; unlesbare Zeilen werden übersprungen statt abzustürzen).
-* **DataStore:** Onboarding-Status, Sicherheitshinweis, Ziel-FPS, die vier Favoriten-Slots.
-* **Profil-Format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, Ziel
-  `global | devices[]`, Parameter. Dasselbe Format dient für Import und Export, inklusive `schemaVersion`.
+* **Room** (Schema 5, exportiert nach `core/data/schemas`, Auto-Migrationen 1→…→5): `servers`,
+  `favorite_colors`, `profiles` (Schema 5 ergänzt `effect`, `effect_speed`, `effect_reverse`; ein der
+  App unbekannter Effekt macht das Profil statisch), `schedules` (Minute des Tages,
+  Wochentags-Bitmaske, Aktion als Text wie `profile:-1` oder `off`; unlesbare Zeilen werden
+  übersprungen statt abzustürzen). `DatabaseMigrationTest` aktualisiert echte Datenbanken jedes
+  früheren Schemas und prüft die Daten.
+* **DataStore:** Onboarding-Status, Sicherheitshinweis, Ziel-FPS, die vier Favoriten-Slots und die
+  letzten Parameter jedes Effekts (geschrieben eine Sekunde nach der letzten Änderung, ein
+  Schieberegler-Zug ist also ein Schreibvorgang).
 
 ## 5. Effekt-Engine (`:core:effects`)
 
@@ -215,8 +230,13 @@ Profile und Effekte kommen als weitere Tabs hinzu, sobald sie umgesetzt sind.
 * **`QuickActionRunner`** führt eine Aktion auch bei geschlossener App aus: Er holt sich ein
   `ConnectionKeepAlive` (der `ConnectionManager` verbindet dann wie im Vordergrund), wartet bis zu
   1,5 s auf den Verbindungsstart und bis zu 7 s, bis kein PC mehr verbindet, führt die Aktion aus und
-  hält die Verbindung 1 s länger offen, damit der letzte Frame ankommt. Bei Kacheln und Widget
-  stoppt ein Tipp auf einen laufenden Effekt ihn wieder.
+  hält die Verbindung 1 s länger offen, damit der letzte Frame ankommt (das Keep-Alive wird auch
+  bei Abbruch freigegeben). Bei Kacheln und Widget stoppt ein Tipp auf einen laufenden Effekt oder
+  ein laufendes dynamisches Profil ihn wieder.
+* **Prozessstart im Hintergrund:** Android startet den Prozess auch für einen Widget-Tipp, eine
+  Kachel, einen Alarm oder nach dem Neustart, ganz ohne Activity. Der `ConnectionManager` startet
+  deshalb im Zustand „Hintergrund“ und verbindet nur für ein Keep-Alive oder sobald die App sichtbar
+  wird; sonst würde ein solcher Prozess Verbindungen öffnen, die nie geschlossen werden.
 * **Widget** (Jetpack Glance, 2×2 Buttons mit Farbstreifen, laufender Effekt hervorgehoben). Der
   Tipp läuft in einem `ActionCallback`; aktualisiert wird bei jeder Änderung von Slots, Profilen
   oder Effektstatus.
@@ -274,14 +294,34 @@ eine Network-Security-Config ist daher nicht nötig.
 * **Effekte im Hintergrund:** Hersteller mit aggressivem Energiesparen (z. B. einige
   Xiaomi-/Huawei-Geräte) können auch Foreground-Services drosseln. Dann muss die App in den
   Akku-Einstellungen von der Optimierung ausgenommen werden.
-* **Effekte in Profilen:** Das JSON-Format kennt bisher nur statische Profile. Effekt-Einstellungen
-  merkt sich die App nur bis zum Neustart; ein Favoriten-Effekt startet danach mit den
-  Standardwerten.
+* **Effekte in Profilen:** Die Geräteauswahl eines Effekts gehört nicht zum Profil; „Anwenden auf…“
+  wählt die Geräte beim Anwenden. Musik-Profile gibt es nicht (Mikrofon-Berechtigung, siehe oben).
 * **Zeitpläne sind nicht exakt:** Android kann sie zum Stromsparen (Doze) um bis zu 10 Minuten
-  verzögern. Effekte können sie nicht starten: Aus einem Alarm im Hintergrund darf kein
-  Foreground-Service starten, und ein Effekt hielte das Handy die ganze Nacht wach. Stattdessen
-  „Alles aus“ oder ein Profil verwenden.
+  verzögern. Effekte und dynamische Profile können sie nicht starten: Aus einem Alarm im
+  Hintergrund darf kein Foreground-Service starten, und ein Effekt hielte das Handy die ganze
+  Nacht wach. Stattdessen „Alles aus“ oder ein statisches Profil verwenden.
 * **Widget und Kacheln** brauchen einen PC, der in etwa 8 s erreichbar ist; sonst melden sie das per
   kurzem Toast (wie auch ein gelöschtes Profil). Manche Launcher aktualisieren das Widget erst mit kurzer Verzögerung.
 * **Mehrere Clients gleichzeitig** (z. B. OpenRGB-GUI-Effekte und die App): Es gilt
   „der letzte Schreiber gewinnt“. Laufende Effekte anderer Clients überschreiben die App.
+
+## 10. Tests und CI
+
+* **Unit-Tests** (`./gradlew unitTests`, rund 300): Protokoll-Codec gegen Pakete, die von einem
+  echten OpenRGB-1.0-Server für jede Protokollversion 0–6 mitgeschnitten wurden, inklusive Fuzzing
+  (jede Kürzung und tausende veränderte Pakete dürfen nur mit `ProtocolException` scheitern);
+  Client, Reconnect und Backpressure gegen einen Fake-Server im Prozess; Effekte; Use-Cases;
+  ConnectionManager und LED-Streaming über echte Sockets; Room-Migrationen von jedem früheren
+  Schema; ViewModels; Robolectric-Tests für das Glance-Widget und die Zeitplan-Alarme;
+  Screenshot-Tests für jeden Screen (Handy, Tablet, Dark Mode, 200 % Schriftgröße).
+* **Gegen einen echten Server** (`OPENRGB_TEST_SERVER=host:port`, sonst übersprungen): der
+  SDK-Sitzungstest und `RealServerEndToEndTest`, der die Datenschicht der App (ConnectionManager,
+  Profile, Effekt-Engine) laufen lässt und die Farben mit einem zweiten Client zurückliest.
+* **CI** (`.github/workflows/build.yml`): Unit-Tests, Lint (Warnungen sind Fehler), Debug- und
+  Release-APK als Artefakte bei jedem Push und Pull Request; ein Tag `v*` erzeugt ein GitHub-Release
+  mit beiden APKs. Das Release wird mit dem Schlüssel aus den Repository-Secrets signiert
+  (`RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`,
+  `RELEASE_KEY_PASSWORD`); ohne sie mit dem Debug-Schlüssel des Runners, das reicht zum Testen,
+  ändert sich aber mit jedem Build. Debug-Builds haben die Application-ID
+  `dev.eno2.openrgbremote.debug` und den Namen „OpenRGB Debug“ und lassen sich neben dem Release
+  installieren.

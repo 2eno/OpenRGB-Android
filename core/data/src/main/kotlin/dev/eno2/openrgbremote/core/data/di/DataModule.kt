@@ -24,6 +24,7 @@ import dev.eno2.openrgbremote.core.data.db.ProfileDao
 import dev.eno2.openrgbremote.core.data.db.ScheduleDao
 import dev.eno2.openrgbremote.core.data.repository.RoomScheduleRepository
 import dev.eno2.openrgbremote.core.data.settings.DataStoreQuickActionRepository
+import dev.eno2.openrgbremote.core.data.effects.DataStoreEffectParamsStore
 import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
 import dev.eno2.openrgbremote.core.domain.repository.ScheduleRepository
 import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
@@ -133,6 +134,7 @@ object DataModule {
         connections: ConnectionManager,
         settings: SettingsRepository,
         audio: AudioLevelSource,
+        store: DataStoreEffectParamsStore,
         @ApplicationScope scope: CoroutineScope,
     ): EffectEngine = EffectEngine(
         devices = overviews().map { list -> list.flatMap { it.devices } },
@@ -141,6 +143,7 @@ object DataModule {
         targetFps = settings.settings.map { it.targetFps },
         audio = audio,
         scope = scope,
+        store = store,
     )
 
     @Provides

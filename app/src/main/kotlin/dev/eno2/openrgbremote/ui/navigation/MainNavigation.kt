@@ -104,6 +104,7 @@ fun MainNavigation(openRequest: OpenRequest? = null, onOpenRequestHandled: () ->
                     onScan = { navController.navigate(ScanRoute) },
                     onAddManually = { navController.navigate(ServerEditRoute()) },
                     onColorAll = { navController.navigate(ColorRoute()) },
+                    onOpenEffect = { effect -> navController.navigate(EffectSettingsRoute(effect.name)) },
                 )
             }
             composable<DeviceDetailRoute> {

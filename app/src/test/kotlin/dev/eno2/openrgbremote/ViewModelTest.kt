@@ -1,5 +1,8 @@
 package dev.eno2.openrgbremote
 
+import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
+import dev.eno2.openrgbremote.core.domain.model.EffectConfig
+import dev.eno2.openrgbremote.core.effects.EffectId
 import androidx.lifecycle.SavedStateHandle
 import dev.eno2.openrgbremote.core.domain.model.ConnectionProblem
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
@@ -27,6 +30,7 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ViewModelTest {
+    private val effects = FakeEffectController()
     @get:Rule val main = MainDispatcherRule()
 
     private val servers = FakeServerRepository(listOf(Server(1, "Desk", "192.168.1.30", 6742, autoConnect = false, createdAtMillis = 5)))
@@ -109,11 +113,16 @@ class ViewModelTest {
     fun `refresh retries servers that are not connected and reloads the others`() = runTest {
         servers.save(Server(2, "Media", "192.168.1.40"))
         connections.statuses.value = mapOf(2L to ConnectionStatus.Connected(6, null, null))
-        val vm = DevicesViewModel(ObserveServerOverviews(servers, connections), connections)
+        val vm = DevicesViewModel(ObserveServerOverviews(servers, connections), connections, effects, effects)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         assertEquals(listOf("Desk", "Media"), vm.state.value.servers.map { it.server.name })
         vm.refresh()
         assertEquals(listOf("retry 1", "refreshAll"), connections.calls)
         assertEquals(false, vm.state.value.refreshing)
+
+        effects.start(EffectConfig(EffectId.FIRE))
+        assertEquals(EffectId.FIRE, vm.state.value.runningEffect?.config?.effect, "the device list explains moving colors")
+        vm.stopEffect()
+        assertEquals(null, vm.state.value.runningEffect)
     }
 }

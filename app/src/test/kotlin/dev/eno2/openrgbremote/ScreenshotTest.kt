@@ -155,6 +155,12 @@ class ScreenshotTest {
     }
 
     @Test
+    fun devices_effect_running_de() = capture("devices_effect_running_de", "+de") {
+        val running = EffectState.Running(EffectConfig(EffectId.AURORA), LoopStats(targetFps = 30, fps = 29, frameMillis = 0.4f, targets = 4), deviceCount = 4)
+        DevicesScreen(DevicesUiState(loading = false, servers = overviews().take(1), runningEffect = running), DevicesActions())
+    }
+
+    @Test
     fun devices_phone_en_dark() = capture("devices_phone_en_dark", "+en-night", dark = true) {
         DevicesScreen(DevicesUiState(loading = false, servers = overviews().reversed()), DevicesActions())
     }
@@ -382,7 +388,7 @@ class ScreenshotTest {
     }
 
     @Test
-    fun schedule_edit_en_dark() = capture("schedule_edit_en_dark", "en-night", dark = true) {
+    fun schedule_edit_en_dark() = capture("schedule_edit_en_dark", "en-w411dp-h891dp-night-xxhdpi", dark = true) {
         ScheduleEditScreen(ScheduleEditUiState(schedules[1].copy(days = emptySet()), allProfiles, daysError = true), ScheduleEditActions())
     }
 

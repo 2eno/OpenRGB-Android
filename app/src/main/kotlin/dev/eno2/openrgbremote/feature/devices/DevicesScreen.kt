@@ -55,6 +55,8 @@ import dev.eno2.openrgbremote.core.domain.model.ServerOverview
 import dev.eno2.openrgbremote.core.domain.model.problem
 import dev.eno2.openrgbremote.ui.common.ConnectionStatusPill
 import dev.eno2.openrgbremote.ui.common.LoadingRow
+import dev.eno2.openrgbremote.core.effects.EffectId
+import dev.eno2.openrgbremote.feature.effects.RunningCard
 import dev.eno2.openrgbremote.ui.common.ProblemCard
 
 @Composable
@@ -63,6 +65,7 @@ fun DevicesRoute(
     onScan: () -> Unit,
     onAddManually: () -> Unit,
     onColorAll: () -> Unit,
+    onOpenEffect: (EffectId) -> Unit = {},
     viewModel: DevicesViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -77,6 +80,8 @@ fun DevicesRoute(
             onScan = onScan,
             onAddManually = onAddManually,
             onColorAll = onColorAll,
+            onOpenEffect = onOpenEffect,
+            onStopEffect = viewModel::stopEffect,
         ),
     )
 }
@@ -90,6 +95,8 @@ data class DevicesActions(
     val onScan: () -> Unit = {},
     val onAddManually: () -> Unit = {},
     val onColorAll: () -> Unit = {},
+    val onOpenEffect: (EffectId) -> Unit = {},
+    val onStopEffect: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -137,6 +144,11 @@ fun DevicesScreen(state: DevicesUiState, actions: DevicesActions) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    state.runningEffect?.let { running ->
+                        item(key = "effect", span = { GridItemSpan(maxLineSpan) }, contentType = "effect") {
+                            RunningCard(running, actions.onOpenEffect, actions.onStopEffect, Modifier.animateItem())
+                        }
+                    }
                     state.servers.forEach { overview -> serverSection(overview, actions) }
                 }
             }

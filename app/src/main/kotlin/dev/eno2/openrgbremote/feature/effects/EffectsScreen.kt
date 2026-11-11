@@ -66,7 +66,7 @@ fun EffectsScreen(state: EffectsUiState, onOpen: (EffectId) -> Unit, onStop: () 
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 AnimatedVisibility(state.running != null) {
-                    state.running?.let { RunningCard(it, onOpen, onStop) }
+                    state.running?.let { RunningCard(it, onOpen, onStop, Modifier.padding(top = 8.dp)) }
                 }
             }
             items(state.cards, key = { it.effect }) { card -> EffectCardView(card, onOpen) }
@@ -80,12 +80,13 @@ fun EffectsScreen(state: EffectsUiState, onOpen: (EffectId) -> Unit, onStop: () 
     }
 }
 
+/** The running effect with its stats and a stop button; also shown above the device list. */
 @Composable
-private fun RunningCard(running: EffectState.Running, onOpen: (EffectId) -> Unit, onStop: () -> Unit) {
+internal fun RunningCard(running: EffectState.Running, onOpen: (EffectId) -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
     val name = stringResource(effectNameRes(running.config.effect))
     Card(
         onClick = { onOpen(running.config.effect) },
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

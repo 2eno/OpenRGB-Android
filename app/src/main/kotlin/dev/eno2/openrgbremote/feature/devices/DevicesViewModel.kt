@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
+import dev.eno2.openrgbremote.core.domain.model.EffectState
+import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import dev.eno2.openrgbremote.core.domain.model.ServerOverview
 import dev.eno2.openrgbremote.core.domain.repository.ConnectionRepository
 import dev.eno2.openrgbremote.core.domain.usecase.ObserveServerOverviews
@@ -19,18 +22,22 @@ data class DevicesUiState(
     val loading: Boolean = true,
     val servers: List<ServerOverview> = emptyList(),
     val refreshing: Boolean = false,
+    /** Shown above the devices: it explains why their colors keep changing. */
+    val runningEffect: EffectState.Running? = null,
 )
 
 @HiltViewModel
 class DevicesViewModel @Inject constructor(
     observeServerOverviews: ObserveServerOverviews,
     private val connections: ConnectionRepository,
+    effects: EffectController,
+    private val launcher: EffectLauncher,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
 
-    val state: StateFlow<DevicesUiState> = combine(observeServerOverviews(), refreshing) { servers, isRefreshing ->
-        DevicesUiState(loading = false, servers = servers, refreshing = isRefreshing)
+    val state: StateFlow<DevicesUiState> = combine(observeServerOverviews(), refreshing, effects.state) { servers, isRefreshing, effect ->
+        DevicesUiState(loading = false, servers = servers, refreshing = isRefreshing, runningEffect = effect as? EffectState.Running)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DevicesUiState())
 
     fun refresh() {
@@ -46,6 +53,8 @@ class DevicesViewModel @Inject constructor(
             }
         }
     }
+
+    fun stopEffect() = launcher.stop()
 
     fun retry(serverId: Long) = connections.retry(serverId)
 

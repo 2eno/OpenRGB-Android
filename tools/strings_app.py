@@ -207,7 +207,7 @@ S = {
     "schedules_title": ("Schedules", "Zeitpläne"),
     "schedules_summary": ("Apply profiles or switch off at set times", "Profile zu festen Zeiten anwenden oder ausschalten"),
     "schedules_empty": ("No schedules yet. For example, switch everything off at night.", "Noch keine Zeitpläne. Schalte zum Beispiel nachts alles aus."),
-    "schedules_note": ("Android may run schedules up to 10 minutes late to save battery. Schedules apply profiles or switch off; starting effects from the background is not allowed by Android.", "Android führt Zeitpläne zum Stromsparen bis zu 10 Minuten später aus. Zeitpläne wenden Profile an oder schalten aus; Effekte aus dem Hintergrund zu starten erlaubt Android nicht."),
+    "schedules_note": ("Android may run schedules up to 10 minutes late to save battery. Schedules apply static profiles or switch off; Android does not allow starting effects or animated profiles from the background.", "Android führt Zeitpläne zum Stromsparen bis zu 10 Minuten später aus. Zeitpläne wenden statische Profile an oder schalten aus; Effekte und animierte Profile aus dem Hintergrund zu starten erlaubt Android nicht."),
     "schedule_add": ("Add schedule", "Zeitplan hinzufügen"),
     "schedule_edit_title": ("Edit schedule", "Zeitplan bearbeiten"),
     "schedule_new_title": ("New schedule", "Neuer Zeitplan"),

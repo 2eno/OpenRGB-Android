@@ -195,7 +195,7 @@
     <string name="schedules_title">Zeitpläne</string>
     <string name="schedules_summary">Profile zu festen Zeiten anwenden oder ausschalten</string>
     <string name="schedules_empty">Noch keine Zeitpläne. Schalte zum Beispiel nachts alles aus.</string>
-    <string name="schedules_note">Android führt Zeitpläne zum Stromsparen bis zu 10 Minuten später aus. Zeitpläne wenden Profile an oder schalten aus; Effekte aus dem Hintergrund zu starten erlaubt Android nicht.</string>
+    <string name="schedules_note">Android führt Zeitpläne zum Stromsparen bis zu 10 Minuten später aus. Zeitpläne wenden statische Profile an oder schalten aus; Effekte und animierte Profile aus dem Hintergrund zu starten erlaubt Android nicht.</string>
     <string name="schedule_add">Zeitplan hinzufügen</string>
     <string name="schedule_edit_title">Zeitplan bearbeiten</string>
     <string name="schedule_new_title">Neuer Zeitplan</string>

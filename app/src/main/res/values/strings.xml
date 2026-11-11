@@ -196,7 +196,7 @@
     <string name="schedules_title">Schedules</string>
     <string name="schedules_summary">Apply profiles or switch off at set times</string>
     <string name="schedules_empty">No schedules yet. For example, switch everything off at night.</string>
-    <string name="schedules_note">Android may run schedules up to 10 minutes late to save battery. Schedules apply profiles or switch off; starting effects from the background is not allowed by Android.</string>
+    <string name="schedules_note">Android may run schedules up to 10 minutes late to save battery. Schedules apply static profiles or switch off; Android does not allow starting effects or animated profiles from the background.</string>
     <string name="schedule_add">Add schedule</string>
     <string name="schedule_edit_title">Edit schedule</string>
     <string name="schedule_new_title">New schedule</string>

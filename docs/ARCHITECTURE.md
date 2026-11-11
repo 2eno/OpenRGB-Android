@@ -134,22 +134,35 @@ concrete suggestion.
   draws the preview in the app. Every zone shows the whole profile; matrix zones are colored column
   by column so gradients run left to right on keyboards. Devices without a per-LED mode get the
   first color. Preset profiles live in code (negative IDs, localized names), custom ones in Room
-  (`profiles`, schema 3).
+  (`profiles`).
+* **Dynamic profiles** additionally carry a `ProfileAnimation` (effect, speed, direction). Applying
+  one starts the effect through the `EffectLauncher` (so the foreground service starts with it) with
+  the profile's palette and brightness; devices without a per-LED mode get the first color. A
+  running effect is taken over seamlessly; a static profile stops it first. Previews animate with
+  the effect renderer; still previews (widget, pickers) show one frame or, for time-based effects,
+  the palette. The music effect is not offered: widgets, tiles and schedules cannot ask for the
+  microphone permission. "Save as profile" in the effect settings creates one from the current
+  settings.
+* **Deleting a profile** (`DeleteProfile`) also empties favorite slots and removes schedules that
+  use it, so nothing points to a missing profile.
 * **JSON exchange format** (`JsonProfileCodec`): `format`, `schemaVersion`, `profiles[]` with
-  `name`, `type`, `layout`, `brightness`, `colors` as hex. Unknown fields are ignored, a higher
-  `schemaVersion` is rejected, entries with an unknown `type` (later: dynamic profiles) are skipped.
+  `name`, `type` (`static` or `dynamic`), `layout`, `brightness`, `colors` as hex, and for dynamic
+  profiles `effect` (lower-case effect id), `speed`, `reverse`. Unknown fields are ignored, a higher
+  `schemaVersion` is rejected, entries with an unknown `type` or `effect` are skipped. The first
+  app version already skipped unknown types, so dynamic profiles needed no new schema version.
   Import and export use the system file picker; the app needs no storage permission for this.
 * **Favorites** are stored in Room (`favorite_colors`, schema 2 with auto-migration).
 * **Stable device identity:** unique IDs (v6) are only valid for one server session, indices
   (v0–5) shift. Profiles therefore reference devices by `serverId + name + location + serial` and
   are resolved again on every connection.
-* **Room** (schema 4, exported to `core/data/schemas`, auto-migrations 1→2→3→4): `servers`,
-  `favorite_colors`, `profiles`, `schedules` (minute of day, weekday bitmask, action as text such as
-  `profile:-1` or `off`; unreadable rows are skipped instead of crashing).
-* **DataStore:** onboarding state, security notice, target FPS, the four favorite slots.
-* **Profile format (JSON, kotlinx.serialization):** `type = static | dynamic | hardware`, target
-  `global | devices[]`, parameters. The same format is used for import and export, including
-  `schemaVersion`.
+* **Room** (schema 5, exported to `core/data/schemas`, auto-migrations 1→…→5): `servers`,
+  `favorite_colors`, `profiles` (schema 5 adds `effect`, `effect_speed`, `effect_reverse`; an
+  effect unknown to the app turns the profile static), `schedules` (minute of day, weekday bitmask,
+  action as text such as `profile:-1` or `off`; unreadable rows are skipped instead of crashing).
+  `DatabaseMigrationTest` upgrades real databases of every earlier schema and checks the data.
+* **DataStore:** onboarding state, security notice, target FPS, the four favorite slots, and the
+  last parameters of each effect (written one second after the last change, so a slider drag is
+  one write).
 
 ## 5. Effects engine (`:core:effects`)
 
@@ -216,7 +229,12 @@ are added as further tabs once they are implemented.
   `ConnectionKeepAlive` (the `ConnectionManager` then connects as if the app were in the
   foreground), waits up to 1.5 s for the connections to start and up to 7 s until no PC is still
   connecting, applies the action and keeps the connection open for 1 s more so the last frame
-  arrives. On tiles and the widget, tapping a running effect stops it again.
+  arrives (the keep-alive is released even if the caller is cancelled). On tiles and the widget,
+  tapping a running effect or dynamic profile stops it again.
+* **Background process starts:** Android also starts the process for a widget tap, a tile, an alarm
+  or after a reboot, without any activity. The `ConnectionManager` therefore starts in the
+  "background" state and connects only for a keep-alive or once the app becomes visible; otherwise
+  such a process would open connections that are never closed.
 * **Widget** (Jetpack Glance, 2×2 buttons with a color strip, the running effect highlighted). Its
   tap runs in an `ActionCallback`; it is refreshed whenever slots, profiles or the effect state
   change.
@@ -273,13 +291,33 @@ needed.
 * **Effects in the background:** manufacturers with aggressive power saving (e.g. some
   Xiaomi/Huawei devices) can throttle foreground services too. Then the app has to be excluded
   from optimization in the battery settings.
-* **Effects in profiles:** the JSON format only knows static profiles so far. The app only
-  remembers effect settings until it restarts; a favorite effect after a restart starts with the
-  default settings.
+* **Effects in profiles:** the effect's device selection is not part of a profile; "Apply to…"
+  chooses devices when applying. Music profiles do not exist (microphone permission, see above).
 * **Schedules are not exact:** Android may delay them by up to 10 minutes to save power (Doze).
-  They cannot start effects: a foreground service may not be started from an alarm in the
-  background, and an effect would keep the phone awake all night. Use “All off” or a profile.
+  They cannot start effects or dynamic profiles: a foreground service may not be started from an
+  alarm in the background, and an effect would keep the phone awake all night. Use “All off” or a
+  static profile.
 * **Widget and tiles** need the PC to be reachable within about 8 s; otherwise they report it in a
   short toast (as they do for a deleted profile). Some launchers only refresh the widget after a short delay.
 * **Multiple clients at the same time** (e.g. OpenRGB GUI effects and the app): “last writer
   wins”. Running effects of other clients overwrite the app.
+
+## 10. Tests and CI
+
+* **Unit tests** (`./gradlew unitTests`, about 300): protocol codec against packets captured from a
+  real OpenRGB 1.0 server for every protocol version 0–6, including fuzzing (every truncation and
+  thousands of mutated packets must fail with `ProtocolException` only); client, reconnect and
+  backpressure against an in-process fake server; effects; use cases; ConnectionManager and LED
+  streaming over real sockets; Room migrations from every earlier schema; ViewModels; Robolectric
+  tests for the Glance widget and the schedule alarms; screenshot tests for every screen (phone,
+  tablet, dark mode, 200 % font size).
+* **Against a real server** (`OPENRGB_TEST_SERVER=host:port`, skipped otherwise): the SDK session
+  test and `RealServerEndToEndTest`, which runs the app's data layer (ConnectionManager, profiles,
+  effect engine) and reads the colors back with a second client.
+* **CI** (`.github/workflows/build.yml`): unit tests, lint (warnings are errors), debug and release
+  APK as artifacts on every push and pull request; a tag `v*` creates a GitHub release with both
+  APKs. The release is signed with the key from the repository secrets (`RELEASE_KEYSTORE_BASE64`,
+  `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD`); without them it is
+  signed with the runner's debug key, which is fine for testing but changes with every build.
+  Debug builds use the application id `dev.eno2.openrgbremote.debug` and the name "OpenRGB Debug",
+  so they can be installed next to the release.

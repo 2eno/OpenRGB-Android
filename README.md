@@ -20,6 +20,8 @@ It controls RGB lighting on PCs in your network that run OpenRGB with the SDK se
 | 2d. Profiles (8 presets, custom, duplicate, JSON import/export, global or per device) | ✅ |
 | 2e. Effects engine (8 effects incl. music), foreground service, Effects tab | ✅ |
 | 2f. Favorites widget, 3 quick settings tiles, schedules, accessibility check | ✅ |
+| 2g. Animated profiles (effects in profiles), effect settings kept across restarts | ✅ |
+| 2h. CI: tests, lint, debug and release APKs, GitHub releases | ✅ [![Build](https://github.com/2eno/OpenRGB-Android/actions/workflows/build.yml/badge.svg)](https://github.com/2eno/OpenRGB-Android/actions/workflows/build.yml) |
 
 ## Screenshots
 
@@ -35,13 +37,13 @@ because debug devices report all LEDs as black. The screenshots show the German 
 |---|---|
 | ![](docs/screenshots/color_all_de.png) | ![](docs/screenshots/device_detail_modes_de.png) |
 
-| Profiles | Profile editor |
-|---|---|
-| ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) |
+| Profiles | Profile editor | Animated profile |
+|---|---|---|
+| ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) | ![](docs/screenshots/profile_edit_dynamic_de.png) |
 
-| Effects | Effect settings |
-|---|---|
-| ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
+| Effects | Effect settings | Running effect in the device list |
+|---|---|---|
+| ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) | ![](docs/screenshots/devices_effect_running_de.png) |
 
 | Favorites (widget & tiles) | Schedules | Schedule editor | Large font (200 %) |
 |---|---|---|---|
@@ -56,7 +58,7 @@ The Gradle wrapper downloads Gradle 9.9 automatically.
 
 ```bash
 ./gradlew :app:assembleDebug                      # APK
-./gradlew test :core:data:testDebugUnitTest :app:testDebugUnitTest   # all unit tests
+./gradlew unitTests                               # all unit tests (debug variants)
 ./gradlew :app:lintDebug                          # lint (warnings are errors)
 ```
 
@@ -74,7 +76,23 @@ missing in one of the languages.
 openrgb --server --server-port 6742
 
 OPENRGB_TEST_SERVER=192.168.1.20:6742 ./gradlew :openrgb-sdk:test
+OPENRGB_TEST_SERVER=192.168.1.20:6742 ./gradlew :core:data:testDebugUnitTest
 ```
+
+The second command includes `RealServerEndToEndTest`: the app's data layer applies profiles and
+runs effects on the server, and a second client reads the colors back. It changes the lighting of
+all devices on that server. Run the two commands one after the other, not in one Gradle call:
+Gradle would run them in parallel, and the SDK test ends with a hardware rescan, which resets all
+LEDs on an OpenRGB 1.0 server.
+
+### CI and releases
+
+`.github/workflows/build.yml` runs the unit tests and lint and builds both APKs on every push; they
+are attached to the run as the `apks` artifact. Pushing a tag such as `v0.2.0` also creates a GitHub
+release. For a stable release signature, add the secrets `RELEASE_KEYSTORE_BASE64`,
+`RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD` (details in the workflow
+file); without them the release APK is signed with a throwaway debug key. The debug app
+("OpenRGB Debug", `dev.eno2.openrgbremote.debug`) installs next to the release.
 
 The fixtures in `openrgb-sdk/src/testFixtures/resources/fixtures/openrgb-1.0` were captured with
 `tools/capture_fixtures.py` from an OpenRGB 1.0 server with debug devices (instructions in the

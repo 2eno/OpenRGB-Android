@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.map
@@ -53,7 +55,7 @@ interface AudioLevelSource {
  * - Starting while an effect runs updates the running loop: switching effects or moving a slider
  *   continues the animation instead of restarting it.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class EffectEngine(
     private val devices: Flow<List<RemoteDevice>>,
     private val lighting: LightingRepository,
@@ -62,6 +64,7 @@ class EffectEngine(
     private val audio: AudioLevelSource,
     private val scope: CoroutineScope,
     private val loop: EffectLoop<DeviceKey> = EffectLoop(),
+    private val store: EffectParamsStore = EffectParamsStore.None,
 ) : EffectController {
 
     private val _state = MutableStateFlow<EffectState>(EffectState.Idle)
@@ -74,9 +77,27 @@ class EffectEngine(
     private var job: Job? = null
     private var keepAliveHandle: Closeable? = null
 
+    /** Latest parameters per effect, written with a delay: a slider drag changes them many times a second. */
+    private val toSave = MutableStateFlow<Map<EffectId, EffectParams>>(emptyMap())
+
+    init {
+        scope.launch {
+            // Remembered settings of this session win over the stored ones.
+            store.load().forEach { (effect, params) -> remembered.putIfAbsent(effect, EffectConfig(effect, params)) }
+        }
+        scope.launch {
+            var saved = emptyMap<EffectId, EffectParams>()
+            toSave.debounce(SAVE_DELAY_MILLIS).collect { latest ->
+                latest.forEach { (effect, params) -> if (saved[effect] != params) store.save(effect, params) }
+                saved = latest
+            }
+        }
+    }
+
     @Synchronized
     override fun start(config: EffectConfig) {
         remembered[config.effect] = config
+        toSave.update { it + (config.effect to config.params) }
         spec.value = EffectSpec(config.effect, config.params)
         selection.value = config.targets
         this.config.value = config
@@ -97,6 +118,10 @@ class EffectEngine(
     }
 
     override fun lastConfig(effect: EffectId): EffectConfig = remembered[effect] ?: EffectConfig(effect)
+
+    private companion object {
+        const val SAVE_DELAY_MILLIS = 1_000L
+    }
 
     private suspend fun runEffect() = coroutineScope {
         val targets: StateFlow<List<RenderTarget<DeviceKey>>> = combine(devices, selection) { list, selected ->

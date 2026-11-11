@@ -20,6 +20,8 @@ läuft (Standardport **6742**).
 | 2d. Profile (8 vorgefertigte, eigene, Duplizieren, JSON-Import/-Export, global oder pro Gerät) | ✅ |
 | 2e. Effekt-Engine (8 Effekte inkl. Musik), Foreground-Service, Effekte-Tab | ✅ |
 | 2f. Favoriten-Widget, 3 Schnelleinstellungs-Kacheln, Zeitpläne, Barrierefreiheits-Prüfung | ✅ |
+| 2g. Animierte Profile (Effekte in Profilen), Effekt-Einstellungen bleiben über Neustarts erhalten | ✅ |
+| 2h. CI: Tests, Lint, Debug- und Release-APK, GitHub-Releases | ✅ [![Build](https://github.com/2eno/OpenRGB-Android/actions/workflows/build.yml/badge.svg)](https://github.com/2eno/OpenRGB-Android/actions/workflows/build.yml) |
 
 ## Screenshots
 
@@ -35,13 +37,13 @@ weil Debug-Geräte alle LEDs als schwarz melden.
 |---|---|
 | ![](docs/screenshots/color_all_de.png) | ![](docs/screenshots/device_detail_modes_de.png) |
 
-| Profile | Profil-Editor |
-|---|---|
-| ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) |
+| Profile | Profil-Editor | Animiertes Profil |
+|---|---|---|
+| ![](docs/screenshots/profiles_de.png) | ![](docs/screenshots/profile_edit_de.png) | ![](docs/screenshots/profile_edit_dynamic_de.png) |
 
-| Effekte | Effekt-Einstellungen |
-|---|---|
-| ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) |
+| Effekte | Effekt-Einstellungen | Laufender Effekt in der Geräteliste |
+|---|---|---|
+| ![](docs/screenshots/effects_de.png) | ![](docs/screenshots/effect_settings_de.png) | ![](docs/screenshots/devices_effect_running_de.png) |
 
 | Favoriten (Widget & Kacheln) | Zeitpläne | Zeitplan-Editor | Große Schrift (200 %) |
 |---|---|---|---|
@@ -56,7 +58,7 @@ Der Gradle-Wrapper lädt Gradle 9.9 automatisch.
 
 ```bash
 ./gradlew :app:assembleDebug                      # APK
-./gradlew test :core:data:testDebugUnitTest :app:testDebugUnitTest   # alle Unit-Tests
+./gradlew unitTests                               # alle Unit-Tests (Debug-Varianten)
 ./gradlew :app:lintDebug                          # Lint (Warnungen gelten als Fehler)
 ```
 
@@ -74,7 +76,23 @@ ein Schlüssel in einer der Sprachen.
 openrgb --server --server-port 6742
 
 OPENRGB_TEST_SERVER=192.168.1.20:6742 ./gradlew :openrgb-sdk:test
+OPENRGB_TEST_SERVER=192.168.1.20:6742 ./gradlew :core:data:testDebugUnitTest
 ```
+
+Der zweite Befehl enthält `RealServerEndToEndTest`: Die Datenschicht der App wendet Profile an und
+lässt Effekte auf dem Server laufen, ein zweiter Client liest die Farben zurück. Er ändert die
+Beleuchtung aller Geräte an diesem Server. Die beiden Befehle nacheinander ausführen, nicht in einem
+Gradle-Aufruf: Gradle würde sie parallel starten, und der SDK-Test endet mit einem Hardware-Rescan,
+der bei OpenRGB 1.0 alle LEDs zurücksetzt.
+
+### CI und Releases
+
+`.github/workflows/build.yml` führt bei jedem Push die Unit-Tests und Lint aus und baut beide APKs;
+sie hängen als Artefakt `apks` am Lauf. Ein Tag wie `v0.2.0` erzeugt zusätzlich ein GitHub-Release.
+Für eine stabile Release-Signatur die Secrets `RELEASE_KEYSTORE_BASE64`,
+`RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` und `RELEASE_KEY_PASSWORD` anlegen (Details in der
+Workflow-Datei); ohne sie wird das Release-APK mit einem Wegwerf-Debug-Schlüssel signiert. Die
+Debug-App („OpenRGB Debug“, `dev.eno2.openrgbremote.debug`) lässt sich neben dem Release installieren.
 
 Die Fixtures unter `openrgb-sdk/src/testFixtures/resources/fixtures/openrgb-1.0` wurden mit
 `tools/capture_fixtures.py` von einem OpenRGB-1.0-Server mit Debug-Geräten mitgeschnitten

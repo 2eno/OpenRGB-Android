@@ -61,6 +61,8 @@ import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -190,18 +192,19 @@ fun EffectSettingsScreen(state: EffectSettingsUiState, microphone: MicrophoneSta
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
                 },
-                actions = {
-                    if (state.canSaveAsProfile) {
-                        IconButton(onClick = { actions.onSaveAsProfile(effectName) }) {
-                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = stringResource(R.string.effect_save_as_profile))
-                        }
-                    }
-                },
             )
         },
         bottomBar = {
             Surface(tonalElevation = 3.dp) {
                 Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
+                    // Keeps the settings beyond an app restart and puts them on the widget or a tile.
+                    if (state.canSaveAsProfile) {
+                        OutlinedButton(onClick = { actions.onSaveAsProfile(effectName) }) {
+                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.effect_save_as_profile))
+                        }
+                    }
                     if (state.running) {
                         Button(onClick = actions.onStop) { Text(stringResource(R.string.action_stop)) }
                     } else {

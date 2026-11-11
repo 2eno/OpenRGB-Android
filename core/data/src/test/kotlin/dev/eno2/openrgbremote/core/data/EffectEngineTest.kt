@@ -2,6 +2,7 @@ package dev.eno2.openrgbremote.core.data
 
 import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
 import dev.eno2.openrgbremote.core.data.effects.EffectEngine
+import dev.eno2.openrgbremote.core.data.effects.EffectParamsStore
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.domain.model.EffectState
@@ -163,5 +164,43 @@ class EffectEngineTest {
         assertTrue((engine.state.value as EffectState.Running).microphoneMissing)
         assertFalse(lighting.calls.isEmpty(), "still renders (dim) so the user sees it is running")
         engine.stop()
+    }
+
+    private class MemoryStore(var stored: Map<EffectId, EffectParams> = emptyMap()) : EffectParamsStore {
+        var writes = 0
+        override suspend fun load() = stored
+        override suspend fun save(effect: EffectId, params: EffectParams) {
+            writes++
+            stored = stored + (effect to params)
+        }
+    }
+
+    @Test
+    fun `effect settings survive a restart and slider drags are written once`() = runTest {
+        val store = MemoryStore(mapOf(EffectId.AURORA to EffectParams(speed = 2f, colors = listOf(0x00FF00))))
+        val engine = EffectEngine(devices, lighting, { Closeable {} }, fps, FakeAudio(true), backgroundScope, EffectLoop { testScheduler.currentTime * 1_000_000 }, store)
+        runCurrent()
+        assertEquals(EffectParams(speed = 2f, colors = listOf(0x00FF00)), engine.lastConfig(EffectId.AURORA).params, "restored from the store")
+        assertEquals(EffectParams(), engine.lastConfig(EffectId.FIRE).params)
+
+        for (step in 1..20) {
+            engine.start(EffectConfig(EffectId.FIRE, EffectParams(speed = 1f + step / 10f)))
+            advanceTimeBy(50)
+        }
+        engine.stop()
+        advanceTimeBy(1_500)
+        assertEquals(1, store.writes, "debounced")
+        assertEquals(3f, store.stored.getValue(EffectId.FIRE).speed)
+    }
+
+    @Test
+    fun `stored parameters are parsed defensively`() {
+        val params = EffectParams(speed = 1.5f, reverse = true, colors = listOf(0xFF0000, 0x00FF00), brightness = 0.4f)
+        assertEquals(params, EffectParamsStore.decode(EffectParamsStore.encode(params)))
+        assertEquals(EffectParams(), EffectParamsStore.decode(EffectParamsStore.encode(EffectParams())))
+        assertEquals(EffectParams.MAX_SPEED, EffectParamsStore.decode("99;false;1.0;")?.speed)
+        for (bad in listOf("", "1;2;3", "x;false;1;", "1;maybe;1;", "1;false;NaN;", "1;false;1;ZZ")) {
+            assertEquals(null, EffectParamsStore.decode(bad), bad)
+        }
     }
 }

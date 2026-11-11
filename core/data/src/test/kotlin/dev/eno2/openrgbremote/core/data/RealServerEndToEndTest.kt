@@ -49,7 +49,8 @@ import kotlin.test.assertTrue
  * client reads the colors back from the server, so the test sees what the hardware would get.
  *
  * Runs when `OPENRGB_TEST_SERVER=host:port` is set (debug devices, see tools/capture_fixtures.py).
- * It changes the colors of all devices on that server.
+ * It changes the colors of all devices on that server. Do not run it in the same Gradle call as
+ * the SDK's RealServerIntegrationTest: that one ends with a rescan, which resets all LEDs.
  */
 class RealServerEndToEndTest {
 
