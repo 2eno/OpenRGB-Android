@@ -18,6 +18,8 @@ import dev.eno2.openrgbremote.core.designsystem.component.rgbColor
 import dev.eno2.openrgbremote.core.domain.model.ColorLayout
 import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.model.ProfileRenderer
+import dev.eno2.openrgbremote.feature.effects.EffectPreview
+import dev.eno2.openrgbremote.feature.effects.effectNameRes
 
 /** String resource of a preset's localized name, null for unknown keys. */
 fun presetNameRes(presetKey: String): Int? = when (presetKey) {
@@ -43,6 +45,13 @@ fun profileDisplayName(profile: Profile): String =
  */
 @Composable
 fun ProfilePreview(profile: Profile, shape: Shape, modifier: Modifier = Modifier) {
+    val animation = profile.animation
+    if (animation != null) {
+        // Dynamic profiles show their effect live, rendered by the code that drives the devices.
+        val description = stringResource(R.string.profile_preview_dynamic_description, profileDisplayName(profile), stringResource(effectNameRes(animation.effect)))
+        EffectPreview(animation.effect, profile.effectParams(), shape, modifier, description = description)
+        return
+    }
     val samples = if (profile.layout == ColorLayout.ALTERNATING) 24 else 60
     val colors = ProfileRenderer.preview(profile, samples)
     val description = stringResource(R.string.profile_preview_description, profileDisplayName(profile))

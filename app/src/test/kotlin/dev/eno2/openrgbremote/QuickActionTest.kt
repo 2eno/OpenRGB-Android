@@ -5,6 +5,8 @@ import dev.eno2.openrgbremote.core.data.connection.ConnectionKeepAlive
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.domain.model.Profile
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
+import dev.eno2.openrgbremote.core.domain.model.EffectState
 import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import dev.eno2.openrgbremote.core.domain.model.Schedule
 import dev.eno2.openrgbremote.core.domain.model.Server
@@ -25,7 +27,7 @@ import dev.eno2.openrgbremote.feature.quick.ScheduleEditViewModel
 import dev.eno2.openrgbremote.quick.QuickActionResult
 import dev.eno2.openrgbremote.quick.QuickActionRunner
 import dev.eno2.openrgbremote.sdk.testing.RealDevices
-import dev.eno2.openrgbremote.service.EffectLauncher
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -69,7 +71,7 @@ class QuickActionTest {
         }
         override fun stop() = effects.stop()
     }
-    private val runner = QuickActionRunner(connections, keepAlive, GetProfile(profiles), ApplyProfile(overviews, lighting, effects), effects, launcher)
+    private val runner = QuickActionRunner(connections, keepAlive, GetProfile(profiles), ApplyProfile(overviews, lighting, launcher), effects, launcher)
 
     private fun connected() {
         connections.statuses.value = mapOf(1L to ConnectionStatus.Connected(6, null, null))
@@ -117,6 +119,32 @@ class QuickActionTest {
         refuseForeground = true
         assertEquals(QuickActionResult.NeedsForeground, runner.run(QuickAction.StartEffect(EffectId.AURORA)))
         assertEquals(listOf("start FIRE speed=1.0 targets=null", "stop", "start AURORA speed=1.0 targets=null", "stop"), effects.calls)
+    }
+
+    @Test
+    fun `dynamic profile from a tile falls back to the app in the background`() = runTest {
+        connected()
+        profiles.save(Profile(name = "Aurora", colors = listOf(0x00FF7F), animation = ProfileAnimation(EffectId.AURORA)))
+        val id = profiles.profiles.value.single { it.name == "Aurora" }.id
+        assertEquals(QuickActionResult.Applied(3), runner.run(QuickAction.ApplyProfile(id)))
+        assertEquals(EffectId.AURORA, (effects.state.value as EffectState.Running).config.effect)
+
+        assertEquals(QuickActionResult.EffectStopped, runner.run(QuickAction.ApplyProfile(id), toggle = true), "a tile tap on the running profile stops it")
+        assertEquals(EffectState.Idle, effects.state.value)
+
+        refuseForeground = true
+        assertEquals(QuickActionResult.NeedsForeground, runner.run(QuickAction.ApplyProfile(id)))
+        assertEquals(EffectState.Idle, effects.state.value, "the engine must not run without its service")
+    }
+
+    @Test
+    fun `cancelling a run still releases the keep-alive`() = runTest {
+        connected()
+        val job = launch { runner.run(QuickAction.Off) }
+        advanceTimeBy(500) // inside the flush delay
+        job.cancel()
+        runCurrent()
+        assertEquals(1 to 1, acquired to released)
     }
 
     @Test

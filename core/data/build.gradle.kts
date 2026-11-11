@@ -16,7 +16,12 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    testOptions { unitTests.isReturnDefaultValues = true }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+        // Room's MigrationTestHelper reads the exported schemas from the test assets.
+        unitTests.isIncludeAndroidResources = true
+    }
+    sourceSets.getByName("test").assets.srcDir("$projectDir/schemas")
 }
 
 ksp {
@@ -40,4 +45,22 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(testFixtures(project(":openrgb-sdk")))
     testImplementation(testFixtures(project(":core:domain")))
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.room.testing)
+}
+
+// Same offline Robolectric runtime as in :app (see app/build.gradle.kts).
+val robolectricRuntime: Configuration = configurations.create("robolectricRuntime") { isTransitive = false }
+dependencies {
+    robolectricRuntime(libs.robolectric.android.all)
+}
+val robolectricJarDir = layout.buildDirectory.dir("robolectric-runtime")
+val copyRobolectricRuntime = tasks.register<Copy>("copyRobolectricRuntime") {
+    from(robolectricRuntime)
+    into(robolectricJarDir)
+}
+tasks.withType<Test>().configureEach {
+    dependsOn(copyRobolectricRuntime)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", robolectricJarDir.get().asFile.absolutePath)
 }

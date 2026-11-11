@@ -9,6 +9,8 @@ import androidx.room.Query
 import androidx.room.Update
 import dev.eno2.openrgbremote.core.domain.model.ColorLayout
 import dev.eno2.openrgbremote.core.domain.model.Profile
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
+import dev.eno2.openrgbremote.core.effects.EffectId
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "profiles")
@@ -21,6 +23,10 @@ data class ProfileEntity(
     val layout: String,
     val brightness: Float,
     @ColumnInfo(name = "created_at") val createdAtMillis: Long,
+    /** [EffectId] name of a dynamic profile, null for a static one (schema 5). */
+    val effect: String? = null,
+    @ColumnInfo(name = "effect_speed", defaultValue = "1.0") val effectSpeed: Float = 1f,
+    @ColumnInfo(name = "effect_reverse", defaultValue = "0") val effectReverse: Boolean = false,
 ) {
     fun toDomain() = Profile(
         id = id,
@@ -29,6 +35,8 @@ data class ProfileEntity(
         layout = ColorLayout.entries.firstOrNull { it.name == layout } ?: ColorLayout.GRADIENT,
         brightness = brightness,
         createdAtMillis = createdAtMillis,
+        // An effect this app version does not know turns the profile into a static one.
+        animation = effect?.let { name -> EffectId.entries.firstOrNull { it.name == name } }?.let { ProfileAnimation(it, effectSpeed, effectReverse) },
     )
 
     companion object {
@@ -39,6 +47,9 @@ data class ProfileEntity(
             layout = profile.layout.name,
             brightness = profile.brightness,
             createdAtMillis = profile.createdAtMillis,
+            effect = profile.animation?.effect?.name,
+            effectSpeed = profile.animation?.speed ?: 1f,
+            effectReverse = profile.animation?.reverse ?: false,
         )
     }
 }

@@ -9,7 +9,7 @@ import dev.eno2.openrgbremote.core.domain.repository.ConnectionRepository
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
 import dev.eno2.openrgbremote.core.domain.usecase.ApplyProfile
 import dev.eno2.openrgbremote.core.domain.usecase.GetProfile
-import dev.eno2.openrgbremote.service.EffectLauncher
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -45,10 +45,9 @@ class QuickActionRunner @Inject constructor(
     private val effects: EffectController,
     private val launcher: EffectLauncher,
 ) {
-    /** With [toggle] a favorite effect that is already running is stopped instead (tiles, widget). */
+    /** With [toggle] a favorite effect or dynamic profile that is already running is stopped instead (tiles, widget). */
     suspend fun run(action: QuickAction, toggle: Boolean = false): QuickActionResult {
-        val running = (effects.state.value as? EffectState.Running)?.config?.effect
-        if (toggle && action is QuickAction.StartEffect && running == action.effect) {
+        if (toggle && isRunning(action)) {
             effects.stop()
             return QuickActionResult.EffectStopped
         }
@@ -61,18 +60,39 @@ class QuickActionRunner @Inject constructor(
                     applied(applyProfile(profile))
                 }
                 QuickAction.Off -> applied(applyProfile(BuiltInProfiles.all.first { it.presetKey == "off" }))
-                is QuickAction.StartEffect -> try {
+                is QuickAction.StartEffect -> {
                     launcher.start(effects.lastConfig(action.effect))
                     QuickActionResult.EffectStarted
-                } catch (_: IllegalStateException) {
-                    // ForegroundServiceStartNotAllowedException (Android 12+) is an IllegalStateException.
-                    effects.stop()
-                    QuickActionResult.NeedsForeground
                 }
             }
+        } catch (_: IllegalStateException) {
+            // ForegroundServiceStartNotAllowedException (Android 12+) is an IllegalStateException;
+            // it comes from effects and dynamic profiles. The engine must not run without the service.
+            effects.stop()
+            return QuickActionResult.NeedsForeground
         } finally {
-            delay(FLUSH_MILLIS) // let the streamers deliver the frame before connections may close
-            handle.close()
+            // Let the streamers deliver the frame before connections may close. If the caller
+            // cancels (e.g. a broadcast running out of time), the delay throws: close anyway, or
+            // the keep-alive would hold every connection open for the rest of the process.
+            try {
+                delay(FLUSH_MILLIS)
+            } finally {
+                handle.close()
+            }
+        }
+    }
+
+    /** The running effect is this favorite: the effect itself, or the dynamic profile with the same settings. */
+    private suspend fun isRunning(action: QuickAction): Boolean {
+        val running = (effects.state.value as? EffectState.Running)?.config ?: return false
+        return when (action) {
+            is QuickAction.StartEffect -> running.effect == action.effect
+            is QuickAction.ApplyProfile -> {
+                val profile = getProfile(action.profileId)
+                val animation = profile?.animation
+                animation != null && running.effect == animation.effect && running.params == profile.effectParams()
+            }
+            QuickAction.Off -> false
         }
     }
 

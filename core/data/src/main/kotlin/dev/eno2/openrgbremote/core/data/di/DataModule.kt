@@ -30,6 +30,7 @@ import dev.eno2.openrgbremote.core.data.effects.AudioLevelSource
 import dev.eno2.openrgbremote.core.data.effects.EffectEngine
 import dev.eno2.openrgbremote.core.data.effects.MicrophoneAudioSource
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import kotlinx.coroutines.flow.map
 import dev.eno2.openrgbremote.core.data.db.ServerDao
 import dev.eno2.openrgbremote.core.data.profile.JsonProfileCodec
@@ -38,6 +39,7 @@ import dev.eno2.openrgbremote.core.domain.repository.ProfileCodec
 import dev.eno2.openrgbremote.core.domain.repository.ProfileRepository
 import dev.eno2.openrgbremote.core.domain.usecase.ApplyProfile
 import dev.eno2.openrgbremote.core.domain.usecase.DuplicateProfile
+import dev.eno2.openrgbremote.core.domain.usecase.DeleteProfile
 import dev.eno2.openrgbremote.core.domain.usecase.GetProfile
 import dev.eno2.openrgbremote.core.domain.usecase.ImportProfiles
 import dev.eno2.openrgbremote.core.domain.usecase.ObserveProfiles
@@ -116,9 +118,11 @@ object DataModule {
     @Provides fun observeProfiles(profiles: ProfileRepository) = ObserveProfiles(profiles)
     @Provides fun getProfile(profiles: ProfileRepository) = GetProfile(profiles)
     @Provides fun saveProfile(profiles: ProfileRepository) = SaveProfile(profiles)
+    @Provides fun deleteProfile(profiles: ProfileRepository, quickActions: QuickActionRepository, schedules: ScheduleRepository) =
+        DeleteProfile(profiles, quickActions, schedules)
     @Provides fun duplicateProfile(profiles: ProfileRepository, save: SaveProfile) = DuplicateProfile(profiles, save)
     @Provides fun importProfiles(profiles: ProfileRepository, codec: ProfileCodec, save: SaveProfile) = ImportProfiles(profiles, codec, save)
-    @Provides fun applyProfile(overviews: ObserveServerOverviews, lighting: LightingRepository, effects: EffectController) =
+    @Provides fun applyProfile(overviews: ObserveServerOverviews, lighting: LightingRepository, effects: EffectLauncher) =
         ApplyProfile(overviews, lighting, effects)
 
     @Provides
@@ -162,7 +166,7 @@ object DataModule {
         networkMonitor: NetworkMonitor,
         @ApplicationScope scope: CoroutineScope,
         config: OpenRgbClientConfig,
-    ): ConnectionManager = ConnectionManager(servers, networkMonitor, scope, config)
+    ): ConnectionManager = ConnectionManager(servers, networkMonitor, scope, config, startInForeground = false)
 
     @Provides
     fun keepAlive(connections: ConnectionManager): ConnectionKeepAlive = connections

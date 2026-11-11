@@ -7,7 +7,7 @@ import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.repository.ProfileCodec
 import dev.eno2.openrgbremote.core.domain.repository.ProfileImportError
-import dev.eno2.openrgbremote.core.domain.repository.ProfileRepository
+import dev.eno2.openrgbremote.core.domain.usecase.DeleteProfile
 import dev.eno2.openrgbremote.core.domain.usecase.ApplyProfile
 import dev.eno2.openrgbremote.core.domain.usecase.DuplicateProfile
 import dev.eno2.openrgbremote.core.domain.usecase.ImportProfiles
@@ -48,7 +48,7 @@ data class ProfilesUiState(
 class ProfilesViewModel @Inject constructor(
     observeProfiles: ObserveProfiles,
     observeServerOverviews: ObserveServerOverviews,
-    private val profiles: ProfileRepository,
+    private val deleteProfile: DeleteProfile,
     private val applyProfile: ApplyProfile,
     private val duplicateProfile: DuplicateProfile,
     private val importProfiles: ImportProfiles,
@@ -81,7 +81,7 @@ class ProfilesViewModel @Inject constructor(
     }
 
     fun delete(id: Long) {
-        viewModelScope.launch { profiles.delete(id) }
+        viewModelScope.launch { deleteProfile(id) }
     }
 
     /** JSON for one profile or, with null, for all custom profiles; null if there is nothing to export. */

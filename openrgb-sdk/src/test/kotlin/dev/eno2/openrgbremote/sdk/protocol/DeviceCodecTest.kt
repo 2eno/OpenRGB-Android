@@ -154,6 +154,41 @@ class DeviceCodecTest {
         }
     }
 
+    /**
+     * Every real packet of every protocol version, truncated at every byte and with random bytes
+     * changed: decoding either succeeds or throws ProtocolException, never anything else
+     * (IndexOutOfBounds, NegativeArraySize, OutOfMemory from a huge count, ...).
+     */
+    @ParameterizedTest
+    @ValueSource(ints = [0, 1, 2, 3, 4, 5, 6])
+    fun `every real packet survives truncation and mutation`(version: Int) {
+        val random = Random(version)
+        for (device in 0..5) {
+            val real = Fixtures.bytes("v${version}_device$device.bin")
+            fun decode(bytes: ByteArray) {
+                try {
+                    DeviceCodec.decodeControllerData(bytes, version, 0, 0)
+                } catch (_: ProtocolException) {
+                    // expected for corrupt input
+                } catch (e: Throwable) {
+                    fail("v$version device $device: ${e::class.simpleName}: ${e.message}")
+                }
+            }
+            for (length in 0 until real.size) decode(real.copyOf(length))
+            repeat(300) {
+                val mutated = real.copyOf()
+                repeat(1 + random.nextInt(6)) { mutated[random.nextInt(mutated.size)] = random.nextInt(256).toByte() }
+                // Length and count fields are the dangerous ones: set some to their maximum.
+                if (random.nextBoolean()) {
+                    val at = random.nextInt(mutated.size - 1)
+                    mutated[at] = 0xFF.toByte()
+                    mutated[at + 1] = 0xFF.toByte()
+                }
+                decode(mutated)
+            }
+        }
+    }
+
     @Test
     fun `data_size larger than the packet is rejected`() {
         assertFailsWith<ProtocolException> { DeviceCodec.decodeControllerData(hex("ff000000 00000000"), 0, 0, 0) }

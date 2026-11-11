@@ -7,6 +7,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import dev.eno2.openrgbremote.core.data.connection.ApplicationScope
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.repository.ProfileRepository
 import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
 import dev.eno2.openrgbremote.core.domain.repository.ScheduleRepository
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +21,7 @@ interface QuickEntryPoint {
     fun quickActions(): QuickActionRepository
     fun effects(): EffectController
     fun schedules(): ScheduleRepository
+    fun profiles(): ProfileRepository
     fun scheduleAlarms(): ScheduleAlarms
 
     @ApplicationScope fun scope(): CoroutineScope

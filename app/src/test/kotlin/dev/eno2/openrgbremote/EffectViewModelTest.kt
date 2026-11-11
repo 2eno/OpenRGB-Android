@@ -6,15 +6,19 @@ import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.domain.model.EffectState
 import dev.eno2.openrgbremote.core.domain.model.Server
+import dev.eno2.openrgbremote.core.domain.model.Profile
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
 import dev.eno2.openrgbremote.core.domain.testing.FakeConnectionRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
+import dev.eno2.openrgbremote.core.domain.testing.FakeProfileRepository
+import dev.eno2.openrgbremote.core.domain.usecase.SaveProfile
 import dev.eno2.openrgbremote.core.domain.testing.FakeServerRepository
 import dev.eno2.openrgbremote.core.domain.usecase.ObserveServerOverviews
 import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.core.effects.EffectParams
 import dev.eno2.openrgbremote.feature.effects.EffectSettingsViewModel
 import dev.eno2.openrgbremote.feature.effects.EffectsViewModel
-import dev.eno2.openrgbremote.service.EffectLauncher
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import dev.eno2.openrgbremote.sdk.testing.RealDevices
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -44,10 +48,11 @@ class EffectViewModelTest {
         statuses.value = mapOf(1L to ConnectionStatus.Connected(6, null, null))
         devices.value = mapOf(1L to listOf(keyboard, strip, hardwareOnly))
     }
+    private val profiles = FakeProfileRepository()
     private val overviews = ObserveServerOverviews(FakeServerRepository(listOf(Server(1, "PC", "h"))), connections)
 
     private fun TestScope.settings(effect: EffectId): EffectSettingsViewModel {
-        val vm = EffectSettingsViewModel(SavedStateHandle(mapOf("effect" to effect.name)), overviews, effects, launcher)
+        val vm = EffectSettingsViewModel(SavedStateHandle(mapOf("effect" to effect.name)), overviews, effects, launcher, profiles, SaveProfile(profiles))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         return vm
     }
@@ -117,5 +122,26 @@ class EffectViewModelTest {
         assertEquals(1.5f, vm.state.value.config.params.speed)
         assertTrue(vm.state.value.running)
         assertTrue(effects.state.value is EffectState.Running)
+    }
+
+    @Test
+    fun `effect settings are saved as a dynamic profile with a unique name`() = runTest {
+        profiles.save(Profile(name = "Fire", colors = listOf(1)))
+        val vm = settings(EffectId.FIRE)
+        vm.setSpeed(2f)
+        vm.setBrightness(0.5f)
+        vm.saveAsProfile("Fire")
+        assertEquals("Fire 2", vm.state.value.savedAs)
+        val saved = profiles.profiles.value.single { it.name == "Fire 2" }
+        assertEquals(ProfileAnimation(EffectId.FIRE, 2f), saved.animation)
+        assertEquals(EffectId.FIRE.defaultColors, saved.colors)
+        assertEquals(0.5f, saved.brightness)
+        vm.savedShown()
+        assertNull(vm.state.value.savedAs)
+
+        val music = settings(EffectId.MUSIC)
+        assertFalse(music.state.value.canSaveAsProfile)
+        music.saveAsProfile("Music")
+        assertEquals(2, profiles.profiles.value.size, "music profiles are not offered")
     }
 }

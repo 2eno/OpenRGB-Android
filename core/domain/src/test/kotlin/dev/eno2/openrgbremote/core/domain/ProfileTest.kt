@@ -1,5 +1,9 @@
 package dev.eno2.openrgbremote.core.domain
 
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
+import dev.eno2.openrgbremote.core.domain.model.EffectState
+import dev.eno2.openrgbremote.core.effects.EffectId
+import dev.eno2.openrgbremote.core.effects.EffectParams
 import dev.eno2.openrgbremote.core.domain.model.BuiltInProfiles
 import dev.eno2.openrgbremote.core.domain.model.ColorLayout
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
@@ -117,6 +121,45 @@ class ProfileTest {
         lighting.calls.clear()
         assertEquals(1, apply(p, only = setOf(DeviceKey.of(1, ramWithoutDirect))))
         assertEquals(listOf("color FF0000 final RAM"), lighting.calls)
+    }
+
+    @Test
+    fun `dynamic profile starts its effect and colors the other devices`() = runTest {
+        val connections = FakeConnectionRepository()
+        connections.statuses.value = mapOf(1L to ConnectionStatus.Connected(6, null, null))
+        connections.devices.value = mapOf(1L to listOf(device, ramWithoutDirect))
+        val lighting = FakeLightingRepository()
+        val effects = FakeEffectController()
+        val apply = ApplyProfile(ObserveServerOverviews(FakeServerRepository(listOf(Server(1, "PC", "h"))), connections), lighting, effects)
+
+        val fire = Profile(name = "Fire", colors = listOf(0x400000, 0xFF8000), brightness = 0.5f, animation = ProfileAnimation(EffectId.FIRE, 2f))
+        assertEquals(2, apply(fire))
+        assertEquals(listOf("color 200000 final RAM"), lighting.calls, "no static frame for the animated keyboard; RAM gets the dimmed first color")
+        assertEquals(listOf("start FIRE speed=2.0 targets=null"), effects.calls, "no stop first: a running effect is taken over")
+        val config = (effects.state.value as EffectState.Running).config
+        assertEquals(EffectParams(2f, false, listOf(0x400000, 0xFF8000), 0.5f), config.params)
+
+        effects.calls.clear()
+        assertEquals(1, apply(fire, only = setOf(DeviceKey.of(1, device))))
+        assertEquals(listOf("start FIRE speed=2.0 targets=[Keyboard]"), effects.calls)
+
+        effects.calls.clear()
+        assertEquals(1, apply(fire, only = setOf(DeviceKey.of(1, ramWithoutDirect))))
+        assertEquals(listOf("stop"), effects.calls, "nothing to animate: no effect runs")
+    }
+
+    @Test
+    fun `effect parameters and previews of dynamic profiles`() {
+        val rainbow = Profile(name = "R", colors = listOf(0x123456), animation = ProfileAnimation(EffectId.RAINBOW_WAVE, speed = 10f))
+        assertEquals(EffectParams(speed = EffectParams.MAX_SPEED, colors = emptyList()), rainbow.effectParams(), "rainbow ignores the palette, speed is clamped")
+        assertTrue(ProfileRenderer.preview(rainbow, 12).toSet().size > 6, "the preview shows the spectrum, not the stored color")
+        assertEquals(0xFF0000, ProfileRenderer.dominantColor(rainbow.copy(colors = listOf(0xFF0000), animation = ProfileAnimation(EffectId.BREATHING))))
+
+        val breathing = Profile(name = "B", colors = listOf(0xFF0000, 0x0000FF), animation = ProfileAnimation(EffectId.BREATHING))
+        val strip = ProfileRenderer.preview(breathing, 10)
+        assertEquals(0xFF0000, strip.first())
+        assertEquals(0x0000FF, strip.last(), "time-based effects preview their palette")
+        assertEquals(EffectParams.MAX_COLORS, Profile(name = "M", colors = List(16) { it }, animation = ProfileAnimation(EffectId.AURORA)).effectParams().colors.size)
     }
 
     @Test

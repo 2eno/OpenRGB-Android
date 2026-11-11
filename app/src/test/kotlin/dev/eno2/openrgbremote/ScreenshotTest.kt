@@ -1,5 +1,6 @@
 package dev.eno2.openrgbremote
 
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
 import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import dev.eno2.openrgbremote.core.domain.model.Schedule
 import dev.eno2.openrgbremote.feature.quick.QuickActionsScreen
@@ -281,10 +282,17 @@ class ScreenshotTest {
         Profile(1, "Schreibtisch Abend", listOf(0xFF6A00, 0xFF2D55, 0x5E5CE6), ColorLayout.GRADIENT),
         Profile(2, "Team-Farben", listOf(0x0A84FF, 0xFFFFFF, 0xFF3B30), ColorLayout.BLOCKS),
         Profile(3, "Bonbon", listOf(0xFF2D55, 0x34C759, 0xFFD60A, 0x0A84FF), ColorLayout.ALTERNATING, brightness = 0.8f),
+        Profile(4, "Lagerfeuer", EffectId.FIRE.defaultColors, animation = ProfileAnimation(EffectId.FIRE, 1.2f)),
+        Profile(5, "Polarlicht", listOf(0x00FF7F, 0x00C8C8, 0x7A3CFF), animation = ProfileAnimation(EffectId.AURORA, 0.8f, reverse = true)),
     )
 
     @Test
-    fun profiles_de() = capture("profiles_de", "de-w411dp-h1100dp-xxhdpi") {
+    fun profile_edit_dynamic_de() = capture("profile_edit_dynamic_de", "de-w411dp-h1100dp-xxhdpi") {
+        ProfileEditScreen(ProfileEditUiState(loading = false, profile = customProfiles[3]), ProfileEditActions())
+    }
+
+    @Test
+    fun profiles_de() = capture("profiles_de", "de-w411dp-h1250dp-xxhdpi") {
         ProfilesScreen(ProfilesUiState(loading = false, builtIn = BuiltInProfiles.all, custom = customProfiles), ProfilesActions())
     }
 

@@ -7,6 +7,9 @@ import dev.eno2.openrgbremote.core.domain.model.ColorLayout
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.Profile
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
+import dev.eno2.openrgbremote.core.effects.EffectId
+import dev.eno2.openrgbremote.core.effects.EffectParams
 import dev.eno2.openrgbremote.core.domain.model.Server
 import dev.eno2.openrgbremote.core.domain.repository.ProfileImportError
 import dev.eno2.openrgbremote.core.domain.testing.FakeConnectionRepository
@@ -16,6 +19,13 @@ import dev.eno2.openrgbremote.core.domain.testing.FakeProfileRepository
 import dev.eno2.openrgbremote.core.domain.testing.FakeServerRepository
 import dev.eno2.openrgbremote.core.domain.usecase.ApplyProfile
 import dev.eno2.openrgbremote.core.domain.usecase.DuplicateProfile
+import dev.eno2.openrgbremote.core.domain.usecase.DeleteProfile
+import dev.eno2.openrgbremote.core.domain.testing.FakeQuickActionRepository
+import dev.eno2.openrgbremote.core.domain.testing.FakeScheduleRepository
+import dev.eno2.openrgbremote.core.domain.model.QuickAction
+import dev.eno2.openrgbremote.core.domain.model.Schedule
+import java.time.DayOfWeek
+import java.time.LocalTime
 import dev.eno2.openrgbremote.core.domain.usecase.GetProfile
 import dev.eno2.openrgbremote.core.domain.usecase.ImportProfiles
 import dev.eno2.openrgbremote.core.domain.usecase.ObserveProfiles
@@ -51,11 +61,13 @@ class ProfileViewModelTest {
     private val lighting = FakeLightingRepository()
     private val repo = FakeProfileRepository(listOf(Profile(1, "Desk", listOf(0xFF0000, 0x0000FF))))
     private val overviews = ObserveServerOverviews(servers, connections)
+    private val slots = FakeQuickActionRepository()
+    private val schedules = FakeScheduleRepository()
     private val save = SaveProfile(repo)
     private val codec = JsonProfileCodec()
 
     private fun TestScope.listViewModel(): ProfilesViewModel {
-        val vm = ProfilesViewModel(ObserveProfiles(repo), overviews, repo, ApplyProfile(overviews, lighting, FakeEffectController()), DuplicateProfile(repo, save), ImportProfiles(repo, codec, save), codec)
+        val vm = ProfilesViewModel(ObserveProfiles(repo), overviews, DeleteProfile(repo, slots, schedules), ApplyProfile(overviews, lighting, FakeEffectController()), DuplicateProfile(repo, save), ImportProfiles(repo, codec, save), codec)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         return vm
     }
@@ -177,5 +189,48 @@ class ProfileViewModelTest {
 
         assertTrue(editViewModel(77).state.value.missing)
         assertTrue(editViewModel(-1).state.value.missing, "presets are not editable")
+    }
+
+    @Test
+    fun `editor turns a profile into an animated one and back`() = runTest {
+        val effects = FakeEffectController()
+        val vm = ProfileEditViewModel(SavedStateHandle(mapOf("profileId" to 0L)), GetProfile(repo), save, ApplyProfile(overviews, lighting, effects))
+        vm.setName("Lagerfeuer")
+        vm.setDynamic(true)
+        assertEquals(ProfileAnimation(EffectId.AURORA), vm.state.value.profile.animation)
+        vm.setEffect(EffectId.RAINBOW_WAVE)
+        assertFalse(vm.state.value.usesColors, "the rainbow has no palette to edit")
+        vm.setEffect(EffectId.FIRE)
+        vm.setSpeed(9f)
+        vm.setReverse(true)
+        assertTrue(vm.state.value.usesColors)
+        repeat(10) { vm.addColor() }
+        assertEquals(EffectParams.MAX_COLORS, vm.state.value.profile.colors.size, "effects take at most 8 colors")
+        assertFalse(vm.state.value.canAddColor)
+
+        vm.setDynamic(false)
+        assertNull(vm.state.value.profile.animation)
+        vm.setDynamic(true)
+        assertEquals(ProfileAnimation(EffectId.FIRE, EffectParams.MAX_SPEED, reverse = true), vm.state.value.profile.animation, "switching back keeps the effect settings")
+
+        vm.tryOnDevices()
+        assertEquals(listOf("start FIRE speed=3.0 targets=null"), effects.calls)
+        assertEquals(2, vm.state.value.tried)
+        vm.save()
+        assertEquals(ProfileAnimation(EffectId.FIRE, 3f, true), repo.profiles.value.single { it.name == "Lagerfeuer" }.animation)
+    }
+
+    @Test
+    fun `deleting a profile removes favorites and schedules that use it`() = runTest {
+        val vm = listViewModel()
+        slots.setSlot(0, QuickAction.ApplyProfile(1))
+        slots.setSlot(1, QuickAction.ApplyProfile(-1))
+        schedules.save(Schedule(time = LocalTime.of(8, 0), days = setOf(DayOfWeek.MONDAY), action = QuickAction.ApplyProfile(1)))
+        schedules.save(Schedule(time = LocalTime.of(23, 0), days = setOf(DayOfWeek.MONDAY), action = QuickAction.Off))
+
+        vm.delete(1)
+        assertTrue(repo.profiles.value.isEmpty())
+        assertEquals(listOf(null, QuickAction.ApplyProfile(-1), null, null), slots.slots.value)
+        assertEquals(listOf(QuickAction.Off), schedules.schedules.value.map { it.action })
     }
 }

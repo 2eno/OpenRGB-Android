@@ -78,7 +78,15 @@ private fun demoAudio(time: Double): AudioLevels {
  * stops when the system's "remove animations" setting is on; the strip then shows one frame.
  */
 @Composable
-fun EffectPreview(effect: EffectId, params: EffectParams, shape: Shape, modifier: Modifier = Modifier, startTime: Double = 1.7) {
+fun EffectPreview(
+    effect: EffectId,
+    params: EffectParams,
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    startTime: Double = 1.7,
+    /** Spoken by TalkBack; defaults to the effect name. */
+    description: String? = null,
+) {
     val context = LocalContext.current
     val systemAnimations = remember {
         Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
@@ -99,12 +107,12 @@ fun EffectPreview(effect: EffectId, params: EffectParams, shape: Shape, modifier
     }
     val colors = IntArray(PREVIEW_LEDS)
     EffectRenderer.render(effect, time, previewLayout, params, demoAudio(time), colors)
-    val description = stringResource(effectNameRes(effect))
+    val spoken = description ?: stringResource(effectNameRes(effect))
     Canvas(
         modifier
             .clip(shape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .clearAndSetSemantics { contentDescription = description },
+            .clearAndSetSemantics { contentDescription = spoken },
     ) {
         val width = size.width / PREVIEW_LEDS
         for (i in 0 until PREVIEW_LEDS) drawRect(rgbColor(colors[i]), Offset(i * width, 0f), Size(width + 1f, size.height))

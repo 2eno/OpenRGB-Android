@@ -6,6 +6,15 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// CI passes the version (see .github/workflows/build.yml); local builds use the defaults.
+val ciVersionCode = providers.environmentVariable("VERSION_CODE").map { it.toInt() }
+val ciVersionName = providers.environmentVariable("VERSION_NAME")
+
+// Release signing: a keystore from the environment (CI secrets), otherwise the debug key so the
+// release build can still be installed for testing. Such an APK cannot update one signed with
+// the real key and vice versa.
+val releaseKeystore = providers.environmentVariable("RELEASE_KEYSTORE_FILE")
+
 android {
     namespace = "dev.eno2.openrgbremote"
     compileSdk = 37
@@ -14,13 +23,30 @@ android {
         applicationId = "dev.eno2.openrgbremote"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = ciVersionCode.getOrElse(1)
+        versionName = ciVersionName.getOrElse("0.1.0")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseKeystore.isPresent) {
+            create("release") {
+                storeFile = file(releaseKeystore.get())
+                storePassword = providers.environmentVariable("RELEASE_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // Installed next to the release build; src/debug renames it in the launcher.
+        }
         release {
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -75,6 +101,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.glance.appwidget.testing)
     testImplementation(testFixtures(project(":openrgb-sdk")))
     testImplementation(testFixtures(project(":core:domain")))
 }

@@ -58,8 +58,8 @@ class ConnectionManagerTest {
 
     private fun server(version: Int = 6) = FakeOpenRgbServer(version).also { fakes += it }
 
-    private fun manager(servers: ServerRepository, grace: Long = 30_000, retryPolicy: ReconnectPolicy = policy) =
-        ConnectionManager(servers, network, scope, config, retryPolicy, backgroundGraceMillis = grace)
+    private fun manager(servers: ServerRepository, grace: Long = 30_000, retryPolicy: ReconnectPolicy = policy, foreground: Boolean = true) =
+        ConnectionManager(servers, network, scope, config, retryPolicy, backgroundGraceMillis = grace, startInForeground = foreground)
 
     private fun test(block: suspend () -> Unit) = runBlocking { withTimeout(20_000) { block() } }
 
@@ -152,6 +152,23 @@ class ConnectionManagerTest {
         manager.setAppInForeground(true)
         manager.awaitStatus(1) { it is ConnectionStatus.Connected }
         assertEquals(2, fake.connectionCount)
+    }
+
+    @Test
+    fun `a process started in the background connects only while kept alive`() = test {
+        val fake = server()
+        val manager = manager(InMemoryServers(listOf(Server(1, "PC", "127.0.0.1", fake.port))), grace = 100, foreground = false)
+        kotlinx.coroutines.delay(300)
+        assertEquals(ConnectionStatus.Offline, manager.statuses.value[1L], "a widget or boot start must not open connections")
+        assertEquals(0, fake.connectionCount)
+
+        val keepAlive = manager.acquireKeepAlive()
+        manager.awaitStatus(1) { it is ConnectionStatus.Connected }
+        keepAlive.close()
+        manager.awaitStatus(1) { it == ConnectionStatus.Offline }
+
+        manager.setAppInForeground(true)
+        manager.awaitStatus(1) { it is ConnectionStatus.Connected }
     }
 
     @Test

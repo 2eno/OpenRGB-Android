@@ -11,13 +11,8 @@ import dagger.hilt.components.SingletonComponent
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.domain.model.EffectState
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import javax.inject.Inject
-
-/** Starts effects together with the foreground service that keeps them running in the background. */
-interface EffectLauncher {
-    fun start(config: EffectConfig)
-    fun stop()
-}
 
 class ServiceEffectLauncher @Inject constructor(
     @ApplicationContext private val context: Context,

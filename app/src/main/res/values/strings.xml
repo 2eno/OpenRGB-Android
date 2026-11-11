@@ -91,7 +91,7 @@
     <string name="profile_import_newer">This file was created by a newer app version. Please update the app.</string>
     <string name="profile_import_empty">The file contains no usable profiles.</string>
     <string name="profile_delete_title">Delete “%1$s”?</string>
-    <string name="profile_delete_text">The profile is removed from this app. The current lighting does not change.</string>
+    <string name="profile_delete_text">The profile is removed from this app, together with favorites and schedules that use it. The current lighting does not change.</string>
     <string name="profile_preset_ocean">Ocean</string>
     <string name="profile_preset_sunset">Sunset</string>
     <string name="profile_preset_cyberpunk">Cyberpunk</string>
@@ -112,6 +112,12 @@
     <string name="profile_colors">Colors</string>
     <string name="profile_color_edit">Change color %1$d, currently %2$s</string>
     <string name="profile_preview">Preview</string>
+    <string name="profile_kind">Type</string>
+    <string name="profile_kind_static">Static</string>
+    <string name="profile_kind_dynamic">Animated</string>
+    <string name="profile_kind_dynamic_with">Animated: %1$s</string>
+    <string name="profile_effect">Effect</string>
+    <string name="profile_preview_dynamic_description">Animated preview of %1$s: %2$s</string>
     <string name="profile_try">Try on devices</string>
     <string name="profile_missing">This profile no longer exists.</string>
     <string name="nav_effects">Effects</string>
@@ -141,6 +147,8 @@
     <string name="effects_hardware_title">Hardware effects</string>
     <string name="effects_hardware_text">Your devices also have their own built-in effects. They run on the device itself, without the phone and without network traffic. You find them in a device\'s details under “Lighting modes”.</string>
     <string name="effect_speed">Speed</string>
+    <string name="effect_save_as_profile">Save as profile</string>
+    <string name="effect_saved_as_profile">Saved as profile “%1$s”</string>
     <string name="effect_speed_value">%1$s×</string>
     <string name="effect_direction">Direction</string>
     <string name="effect_forward">Forward</string>

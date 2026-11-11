@@ -1,6 +1,10 @@
 package dev.eno2.openrgbremote.feature.profiles
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -20,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Devices
@@ -69,6 +75,7 @@ import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.repository.ProfileImportError
 import dev.eno2.openrgbremote.ui.common.LoadingRow
+import dev.eno2.openrgbremote.feature.effects.effectNameRes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,6 +89,23 @@ fun ProfilesRoute(onEdit: (Long) -> Unit, viewModel: ProfilesViewModel = hiltVie
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingExport by remember { mutableStateOf<String?>(null) }
+
+    // A dynamic profile starts the effect service, whose notification holds the stop action.
+    var pendingApply by remember { mutableStateOf<Pair<Profile, Set<DeviceKey>?>?>(null) }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        pendingApply?.let { (profile, only) -> viewModel.apply(profile, only) }
+        pendingApply = null
+    }
+    fun applyWithPermission(profile: Profile, only: Set<DeviceKey>?) {
+        if (profile.isDynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingApply = profile to only
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            viewModel.apply(profile, only)
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         val json = pendingExport
@@ -121,7 +145,7 @@ fun ProfilesRoute(onEdit: (Long) -> Unit, viewModel: ProfilesViewModel = hiltVie
     ProfilesScreen(
         state = state,
         actions = ProfilesActions(
-            onApply = viewModel::apply,
+            onApply = ::applyWithPermission,
             onNew = { onEdit(0) },
             onEdit = onEdit,
             onDuplicate = viewModel::duplicate,
@@ -281,6 +305,15 @@ private fun ProfileCard(profile: Profile, actions: ProfilesActions, onApplyTo: (
         Column {
             ProfilePreview(profile, MaterialTheme.shapes.medium, Modifier.fillMaxWidth().height(64.dp))
             Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                val animation = profile.animation
+                if (animation != null) {
+                    Icon(
+                        Icons.Outlined.AutoAwesome,
+                        contentDescription = stringResource(R.string.profile_kind_dynamic_with, stringResource(effectNameRes(animation.effect))),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 6.dp).size(18.dp),
+                    )
+                }
                 Text(name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more) + ": " + name) }

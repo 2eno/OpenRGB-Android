@@ -32,6 +32,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -60,6 +64,12 @@ import dev.eno2.openrgbremote.core.designsystem.component.EmptyState
 import dev.eno2.openrgbremote.core.designsystem.component.SectionHeader
 import dev.eno2.openrgbremote.core.designsystem.component.rgbColor
 import dev.eno2.openrgbremote.core.domain.model.ColorLayout
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
+import dev.eno2.openrgbremote.core.effects.EffectId
+import dev.eno2.openrgbremote.core.effects.EffectParams
+import dev.eno2.openrgbremote.feature.effects.LabeledValue
+import dev.eno2.openrgbremote.feature.effects.effectDescriptionRes
+import dev.eno2.openrgbremote.feature.effects.effectNameRes
 import dev.eno2.openrgbremote.ui.common.ColorPickerDialog
 import dev.eno2.openrgbremote.ui.common.LoadingRow
 import kotlin.math.roundToInt
@@ -75,6 +85,10 @@ fun ProfileEditRoute(onDone: () -> Unit, viewModel: ProfileEditViewModel = hiltV
             onName = viewModel::setName,
             onLayout = viewModel::setLayout,
             onBrightness = viewModel::setBrightness,
+            onDynamic = viewModel::setDynamic,
+            onEffect = viewModel::setEffect,
+            onSpeed = viewModel::setSpeed,
+            onReverse = viewModel::setReverse,
             onColor = viewModel::setColor,
             onAddColor = viewModel::addColor,
             onRemoveColor = viewModel::removeColor,
@@ -90,6 +104,10 @@ data class ProfileEditActions(
     val onName: (String) -> Unit = {},
     val onLayout: (ColorLayout) -> Unit = {},
     val onBrightness: (Float) -> Unit = {},
+    val onDynamic: (Boolean) -> Unit = {},
+    val onEffect: (EffectId) -> Unit = {},
+    val onSpeed: (Float) -> Unit = {},
+    val onReverse: (Boolean) -> Unit = {},
     val onColor: (Int, Int) -> Unit = { _, _ -> },
     val onAddColor: () -> Unit = {},
     val onRemoveColor: (Int) -> Unit = {},
@@ -152,27 +170,45 @@ fun ProfileEditScreen(state: ProfileEditUiState, actions: ProfileEditActions) {
                     SectionHeader(stringResource(R.string.profile_preview))
                     ProfilePreview(profile, MaterialTheme.shapes.medium, Modifier.fillMaxWidth().height(56.dp))
 
-                    SectionHeader(stringResource(R.string.profile_colors))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        profile.colors.forEachIndexed { index, rgb ->
-                            val label = stringResource(R.string.profile_color_edit, index + 1, "#%06X".format(rgb))
-                            Box(
-                                Modifier
-                                    .size(48.dp)
-                                    .clip(CircleShape)
-                                    .clickable(role = Role.Button, onClickLabel = label) { editing = index }
-                                    .semantics { contentDescription = label },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Box(Modifier.size(38.dp).clip(CircleShape).background(rgbColor(rgb)).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape))
-                            }
+                    SectionHeader(stringResource(R.string.profile_kind))
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        val options = listOf(false to R.string.profile_kind_static, true to R.string.profile_kind_dynamic)
+                        options.forEachIndexed { index, (dynamic, label) ->
+                            SegmentedButton(
+                                selected = profile.isDynamic == dynamic,
+                                onClick = { actions.onDynamic(dynamic) },
+                                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                            ) { Text(stringResource(label)) }
                         }
-                        if (state.canAddColor) {
-                            IconButton(onClick = actions.onAddColor) { Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.mode_color_add)) }
+                    }
+                    val animation = profile.animation
+                    if (animation != null) {
+                        AnimationSettings(animation, actions)
+                    }
+
+                    if (state.usesColors) {
+                        SectionHeader(stringResource(R.string.profile_colors))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            profile.colors.forEachIndexed { index, rgb ->
+                                val label = stringResource(R.string.profile_color_edit, index + 1, "#%06X".format(rgb))
+                                Box(
+                                    Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape)
+                                        .clickable(role = Role.Button, onClickLabel = label) { editing = index }
+                                        .semantics { contentDescription = label },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Box(Modifier.size(38.dp).clip(CircleShape).background(rgbColor(rgb)).border(1.dp, MaterialTheme.colorScheme.outline, CircleShape))
+                                }
+                            }
+                            if (state.canAddColor) {
+                                IconButton(onClick = actions.onAddColor) { Icon(Icons.Outlined.Add, contentDescription = stringResource(R.string.mode_color_add)) }
+                            }
                         }
                     }
 
-                    if (profile.colors.size > 1) {
+                    if (animation == null && profile.colors.size > 1) {
                         SectionHeader(stringResource(R.string.profile_layout))
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             ColorLayout.entries.forEach { layout ->
@@ -218,6 +254,46 @@ fun ProfileEditScreen(state: ProfileEditUiState, actions: ProfileEditActions) {
                 onConfirm = { rgb -> actions.onColor(index, rgb); editing = null },
                 onRemove = if (state.canRemoveColor) ({ actions.onRemoveColor(index); editing = null }) else null,
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AnimationSettings(animation: ProfileAnimation, actions: ProfileEditActions) {
+    SectionHeader(stringResource(R.string.profile_effect))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        PROFILE_EFFECTS.forEach { effect ->
+            FilterChip(
+                selected = animation.effect == effect,
+                onClick = { actions.onEffect(effect) },
+                label = { Text(stringResource(effectNameRes(effect))) },
+            )
+        }
+    }
+    Text(
+        stringResource(effectDescriptionRes(animation.effect)),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+    val speedLabel = stringResource(R.string.effect_speed)
+    val speedText = stringResource(R.string.effect_speed_value, String.format(LocalConfiguration.current.locales[0], "%.1f", animation.speed))
+    LabeledValue(speedLabel, speedText)
+    Slider(
+        value = animation.speed,
+        onValueChange = actions.onSpeed,
+        valueRange = EffectParams.MIN_SPEED..EffectParams.MAX_SPEED,
+        modifier = Modifier.semantics {
+            contentDescription = speedLabel
+            stateDescription = speedText
+        },
+    )
+    if (animation.effect.hasDirection) {
+        SectionHeader(stringResource(R.string.effect_direction))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = !animation.reverse, onClick = { actions.onReverse(false) }, label = { Text(stringResource(R.string.effect_forward)) })
+            FilterChip(selected = animation.reverse, onClick = { actions.onReverse(true) }, label = { Text(stringResource(R.string.effect_backward)) })
         }
     }
 }

@@ -190,7 +190,8 @@ fun ActionPickerDialog(
                 if (allowNone) Option(stringResource(R.string.quick_none), current == null) { onPick(null) }
                 Option(stringResource(R.string.quick_off), current == QuickAction.Off) { onPick(QuickAction.Off) }
                 SectionHeader(stringResource(R.string.quick_section_profiles))
-                profiles.forEach { profile ->
+                // Schedules cannot start effects, so dynamic profiles are left out there too.
+                profiles.filter { allowEffects || !it.isDynamic }.forEach { profile ->
                     val action = QuickAction.ApplyProfile(profile.id)
                     Option(profileDisplayName(profile), current == action, colors = ProfileRenderer.preview(profile, 6).toList()) { onPick(action) }
                 }

@@ -5,6 +5,7 @@ import dev.eno2.openrgbremote.core.domain.model.ColorTarget
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.domain.model.EffectState
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import dev.eno2.openrgbremote.core.domain.repository.SettingsRepository
 import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
@@ -118,7 +119,8 @@ class FakeProfileRepository(initial: List<Profile> = emptyList()) : ProfileRepos
     override suspend fun delete(id: Long) = profiles.update { list -> list.filterNot { it.id == id } }
 }
 
-class FakeEffectController : EffectController {
+/** Also the launcher: tests have no foreground service. */
+class FakeEffectController : EffectController, EffectLauncher {
     override val state = MutableStateFlow<EffectState>(EffectState.Idle)
     val calls = mutableListOf<String>()
 

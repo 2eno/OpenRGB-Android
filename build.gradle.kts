@@ -9,3 +9,11 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.hilt) apply false
 }
+
+// All unit tests, debug variants only (`test` would also run every Android module's release
+// unit tests, which doubles the time without testing anything new).
+tasks.register("unitTests") {
+    group = "verification"
+    description = "Runs the unit tests of all modules."
+    dependsOn(":openrgb-sdk:test", ":core:effects:test", ":core:domain:test", ":core:data:testDebugUnitTest", ":app:testDebugUnitTest")
+}

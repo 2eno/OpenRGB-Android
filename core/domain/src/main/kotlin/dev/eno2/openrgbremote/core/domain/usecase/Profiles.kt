@@ -5,12 +5,16 @@ import dev.eno2.openrgbremote.core.domain.model.ColorTarget
 import dev.eno2.openrgbremote.core.domain.model.DeviceKey
 import dev.eno2.openrgbremote.core.domain.model.Profile
 import dev.eno2.openrgbremote.core.domain.model.ProfileRenderer
-import dev.eno2.openrgbremote.core.domain.repository.EffectController
+import dev.eno2.openrgbremote.core.domain.model.EffectConfig
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import dev.eno2.openrgbremote.core.domain.repository.LightingRepository
 import dev.eno2.openrgbremote.core.domain.repository.ProfileCodec
 import dev.eno2.openrgbremote.core.domain.repository.ProfileDecodeResult
 import dev.eno2.openrgbremote.core.domain.repository.ProfileImportError
 import dev.eno2.openrgbremote.core.domain.repository.ProfileRepository
+import dev.eno2.openrgbremote.core.domain.repository.QuickActionRepository
+import dev.eno2.openrgbremote.core.domain.repository.ScheduleRepository
+import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -29,25 +33,38 @@ class GetProfile(private val profiles: ProfileRepository) {
 /**
  * Applies a profile to all connected devices or to [only] the given ones and returns how many
  * were reached. Devices without a per-LED mode get the profile's first color.
+ *
+ * A dynamic profile starts its effect on the per-LED capable devices instead (through [effects],
+ * so the background service starts with it). Without [only] the effect also covers devices that
+ * connect later. [EffectLauncher.start] may throw [IllegalStateException] in the background.
  */
 class ApplyProfile(
     private val overviews: ObserveServerOverviews,
     private val lighting: LightingRepository,
-    private val effects: EffectController,
+    private val effects: EffectLauncher,
 ) {
     suspend operator fun invoke(profile: Profile, only: Set<DeviceKey>? = null): Int {
-        // A running effect would paint over the profile with its next frame.
-        effects.stop()
         val devices = overviews().first().flatMap { it.devices }.filter { only == null || it.key in only }
+        val animation = profile.animation
+        if (animation == null) {
+            // A running effect would paint over the profile with its next frame.
+            effects.stop()
+        }
         var reached = 0
+        var animated = 0
         for (remote in devices) {
             val device = remote.device
-            val ok = if (device.directModeIndex() != null && device.ledCount > 0) {
-                lighting.setFrame(remote.key, ProfileRenderer.renderDevice(profile, device))
-            } else {
-                lighting.setColor(listOf(ColorTarget.Device(remote.key)), ProfileRenderer.dominantColor(profile), preview = false) > 0
+            val perLed = device.directModeIndex() != null && device.ledCount > 0
+            val ok = when {
+                perLed && animation != null -> { animated++; true }
+                perLed -> lighting.setFrame(remote.key, ProfileRenderer.renderDevice(profile, device))
+                else -> lighting.setColor(listOf(ColorTarget.Device(remote.key)), ProfileRenderer.dominantColor(profile), preview = false) > 0
             }
             if (ok) reached++
+        }
+        if (animation != null) {
+            // Replaces a running effect seamlessly; without capable devices nothing would animate.
+            if (animated > 0) effects.start(EffectConfig(animation.effect, profile.effectParams(), targets = only)) else effects.stop()
         }
         return reached
     }
@@ -76,6 +93,24 @@ class SaveProfile(private val profiles: ProfileRepository, private val clock: ()
             createdAtMillis = existing?.createdAtMillis ?: clock(),
         )
         return SaveProfileResult.Saved(profiles.save(stored))
+    }
+}
+
+/**
+ * Deletes a custom profile together with what would otherwise point to nothing: favorite slots
+ * are emptied and schedules that apply it are removed (their alarms follow the schedule list).
+ */
+class DeleteProfile(
+    private val profiles: ProfileRepository,
+    private val quickActions: QuickActionRepository,
+    private val schedules: ScheduleRepository,
+) {
+    suspend operator fun invoke(id: Long) {
+        if (id <= 0) return
+        val action = QuickAction.ApplyProfile(id)
+        quickActions.observeSlots().first().forEachIndexed { index, slot -> if (slot == action) quickActions.setSlot(index, null) }
+        schedules.observeSchedules().first().filter { it.action == action }.forEach { schedules.delete(it.id) }
+        profiles.delete(id)
     }
 }
 

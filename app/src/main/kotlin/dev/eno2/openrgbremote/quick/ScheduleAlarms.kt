@@ -11,6 +11,7 @@ import dev.eno2.openrgbremote.core.domain.model.Schedule
 import dev.eno2.openrgbremote.feature.quick.ScheduleAlarmCanceller
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.ZonedDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -62,7 +63,8 @@ class ScheduleReceiver : BroadcastReceiver() {
             try {
                 entry.schedules().getSchedule(id)?.takeIf { it.enabled }?.let { schedule ->
                     entry.scheduleAlarms().schedule(schedule, ZonedDateTime.now().plusMinutes(1))
-                    entry.runner().run(schedule.action)
+                    // goAsync() leaves about 10 s before Android considers the receiver hung.
+                    withTimeoutOrNull(RECEIVER_BUDGET_MILLIS) { entry.runner().run(schedule.action) }
                 }
             } finally {
                 pending.finish()
@@ -72,6 +74,7 @@ class ScheduleReceiver : BroadcastReceiver() {
 
     companion object {
         const val EXTRA_ID = "schedule_id"
+        private const val RECEIVER_BUDGET_MILLIS = 9_000L
     }
 }
 

@@ -7,7 +7,7 @@ import dev.eno2.openrgbremote.core.domain.model.EffectState
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
 import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.core.effects.EffectParams
-import dev.eno2.openrgbremote.service.EffectLauncher
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map

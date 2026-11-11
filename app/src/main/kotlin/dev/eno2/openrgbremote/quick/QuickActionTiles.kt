@@ -9,7 +9,6 @@ import android.service.quicksettings.TileService
 import dev.eno2.openrgbremote.MainActivity
 import dev.eno2.openrgbremote.R
 import dev.eno2.openrgbremote.core.domain.model.EffectState
-import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -56,8 +55,8 @@ abstract class QuickActionTile(private val slot: Int) : TileService() {
             val tile = qsTile ?: return@launch
             val action = entry.quickActions().observeSlots().first().getOrNull(slot)
             val label = action?.let { entry.labels().label(it) }
-            val running = (entry.effects().state.value as? EffectState.Running)?.config?.effect
-            val active = action is QuickAction.StartEffect && action.effect == running
+            val running = (entry.effects().state.value as? EffectState.Running)?.config
+            val active = label?.isRunning(running) == true
             tile.label = label?.name ?: getString(R.string.quick_tile_label, slot + 1)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 tile.subtitle = when {

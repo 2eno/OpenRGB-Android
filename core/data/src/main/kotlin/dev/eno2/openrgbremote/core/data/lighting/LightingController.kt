@@ -109,7 +109,12 @@ class LightingController(
         false
     }
 
-    /** One streamer per live client; a reconnect creates a new client and therefore a new session. */
+    /**
+     * One streamer per live client; a reconnect creates a new client and therefore a new session.
+     * Synchronized: the effect engine and the UI call this concurrently, and two streamers for one
+     * client would let an older frame overtake a newer one.
+     */
+    @Synchronized
     private fun session(serverId: Long): Session? {
         val client = connections.client(serverId)
         val existing = sessions[serverId]

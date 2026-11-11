@@ -1,5 +1,10 @@
 package dev.eno2.openrgbremote.core.domain.model
 
+import dev.eno2.openrgbremote.core.effects.AudioLevels
+import dev.eno2.openrgbremote.core.effects.EffectId
+import dev.eno2.openrgbremote.core.effects.EffectParams
+import dev.eno2.openrgbremote.core.effects.EffectRenderer
+import dev.eno2.openrgbremote.core.effects.LedLayout
 import dev.eno2.openrgbremote.sdk.model.OpenRgbDevice
 import dev.eno2.openrgbremote.sdk.model.Zone
 import kotlin.math.roundToInt
@@ -17,7 +22,18 @@ enum class ColorLayout {
 }
 
 /**
- * A static lighting profile: a palette, its layout and a brightness.
+ * Turns a profile into a dynamic one: instead of painting static colors, applying it starts
+ * [effect] with the profile's colors and brightness.
+ */
+data class ProfileAnimation(
+    val effect: EffectId,
+    /** [EffectParams.MIN_SPEED]..[EffectParams.MAX_SPEED]. */
+    val speed: Float = 1f,
+    val reverse: Boolean = false,
+)
+
+/**
+ * A lighting profile: a palette, its layout and a brightness, optionally animated by an effect.
  * Built-in profiles have a [presetKey] and negative ids; they cannot be edited or deleted.
  */
 data class Profile(
@@ -30,8 +46,22 @@ data class Profile(
     val brightness: Float = 1f,
     val presetKey: String? = null,
     val createdAtMillis: Long = 0,
+    /** Null for a static profile. */
+    val animation: ProfileAnimation? = null,
 ) {
     val isBuiltIn: Boolean get() = presetKey != null
+    val isDynamic: Boolean get() = animation != null
+
+    /** Effect parameters of a dynamic profile; the palette is only passed to effects that use it. */
+    fun effectParams(): EffectParams {
+        val animation = animation ?: return EffectParams(brightness = brightness)
+        return EffectParams(
+            speed = animation.speed.coerceIn(EffectParams.MIN_SPEED, EffectParams.MAX_SPEED),
+            reverse = animation.reverse,
+            colors = if (animation.effect.usesColors) colors.take(EffectParams.MAX_COLORS) else emptyList(),
+            brightness = brightness.coerceIn(0f, 1f),
+        )
+    }
 
     companion object {
         const val MAX_COLORS = 16
@@ -108,11 +138,38 @@ object ProfileRenderer {
         return out
     }
 
-    /** [samples] colors for a preview strip. */
-    fun preview(profile: Profile, samples: Int): IntArray = IntArray(samples) { colorAt(profile, it, samples) }
+    /**
+     * [samples] colors for a preview strip. Dynamic profiles show one representative frame of
+     * their effect, rendered by the same code that drives the devices.
+     */
+    fun preview(profile: Profile, samples: Int): IntArray {
+        val animation = profile.animation ?: return IntArray(samples) { colorAt(profile, it, samples) }
+        val params = profile.effectParams()
+        val out = IntArray(samples)
+        if (animation.effect in SPATIAL_EFFECTS) {
+            EffectRenderer.render(animation.effect, PREVIEW_TIME, LedLayout.linear(samples), params, AudioLevels.SILENCE, out)
+        } else {
+            // Effects that change over time rather than along the strip would show a single
+            // (or, for music, a dark) frame; their palette says more.
+            val strip = profile.copy(colors = params.paletteFor(animation.effect), layout = ColorLayout.GRADIENT, animation = null)
+            for (i in out.indices) out[i] = colorAt(strip, i, samples)
+        }
+        return out
+    }
 
-    /** The single color used for devices that cannot show per-LED colors. */
-    fun dominantColor(profile: Profile): Int = dim(profile.colors.firstOrNull() ?: 0, profile.brightness)
+    /**
+     * The single color used for devices that cannot show per-LED colors. For a dynamic profile
+     * that is the first color of the effect's palette.
+     */
+    fun dominantColor(profile: Profile): Int {
+        val animation = profile.animation
+        val first = if (animation != null) profile.effectParams().paletteFor(animation.effect).first() else profile.colors.firstOrNull() ?: 0
+        return dim(first, profile.brightness)
+    }
+
+    /** Effect time of the still preview frame: far enough in that every effect shows its colors. */
+    private const val PREVIEW_TIME = 1.7
+    private val SPATIAL_EFFECTS = setOf(EffectId.RAINBOW_WAVE, EffectId.FIRE, EffectId.AURORA, EffectId.GRADIENT_FLOW)
 
     private fun mix(a: Int, b: Int, t: Float): Int {
         fun channel(shift: Int): Int {

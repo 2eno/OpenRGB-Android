@@ -90,7 +90,7 @@
     <string name="profile_import_newer">Diese Datei stammt aus einer neueren App-Version. Bitte aktualisiere die App.</string>
     <string name="profile_import_empty">Die Datei enthält keine verwendbaren Profile.</string>
     <string name="profile_delete_title">„%1$s“ löschen?</string>
-    <string name="profile_delete_text">Das Profil wird aus der App entfernt. Die aktuelle Beleuchtung ändert sich nicht.</string>
+    <string name="profile_delete_text">Das Profil wird aus der App entfernt, zusammen mit Favoriten und Zeitplänen, die es verwenden. Die aktuelle Beleuchtung ändert sich nicht.</string>
     <string name="profile_preset_ocean">Ozean</string>
     <string name="profile_preset_sunset">Sonnenuntergang</string>
     <string name="profile_preset_cyberpunk">Cyberpunk</string>
@@ -111,6 +111,12 @@
     <string name="profile_colors">Farben</string>
     <string name="profile_color_edit">Farbe %1$d ändern, aktuell %2$s</string>
     <string name="profile_preview">Vorschau</string>
+    <string name="profile_kind">Art</string>
+    <string name="profile_kind_static">Statisch</string>
+    <string name="profile_kind_dynamic">Animiert</string>
+    <string name="profile_kind_dynamic_with">Animiert: %1$s</string>
+    <string name="profile_effect">Effekt</string>
+    <string name="profile_preview_dynamic_description">Animierte Vorschau von %1$s: %2$s</string>
     <string name="profile_try">Auf Geräten testen</string>
     <string name="profile_missing">Dieses Profil gibt es nicht mehr.</string>
     <string name="nav_effects">Effekte</string>
@@ -140,6 +146,8 @@
     <string name="effects_hardware_title">Hardware-Effekte</string>
     <string name="effects_hardware_text">Deine Geräte haben auch eigene, eingebaute Effekte. Sie laufen direkt auf dem Gerät, ohne Handy und ohne Netzwerklast. Du findest sie in den Details eines Geräts unter „Lichtmodi“.</string>
     <string name="effect_speed">Geschwindigkeit</string>
+    <string name="effect_save_as_profile">Als Profil speichern</string>
+    <string name="effect_saved_as_profile">Als Profil „%1$s“ gespeichert</string>
     <string name="effect_speed_value">%1$s×</string>
     <string name="effect_direction">Richtung</string>
     <string name="effect_forward">Vorwärts</string>

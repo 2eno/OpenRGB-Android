@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withResumed
 import dagger.hilt.android.AndroidEntryPoint
 import dev.eno2.openrgbremote.core.designsystem.theme.OpenRgbTheme
 import dev.eno2.openrgbremote.core.domain.model.QuickAction
@@ -47,9 +48,12 @@ class MainActivity : ComponentActivity() {
     private fun handle(intent: Intent?) {
         if (intent?.getBooleanExtra(EXTRA_OPEN_FAVORITES, false) == true) openRequest = OpenRequest.FAVORITES
         QuickAction.decode(intent?.getStringExtra(EXTRA_RUN))?.let { action ->
-            // Started from a tile or widget where Android refused the background service start;
-            // in the foreground it is allowed.
-            lifecycleScope.launch { showQuickActionFeedback(this@MainActivity, runner.run(action)) }
+            // Started from a tile or widget where Android refused the background service start.
+            // It is allowed once the activity is visible, which onCreate is not yet.
+            lifecycleScope.launch {
+                lifecycle.withResumed {}
+                showQuickActionFeedback(this@MainActivity, runner.run(action))
+            }
             intent?.removeExtra(EXTRA_RUN)
         }
     }

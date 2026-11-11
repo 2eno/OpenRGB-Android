@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds have their own application id and can be installed next to the release build;
+     a different name tells them apart in the launcher and the widget picker. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:label="@string/app_name_debug"
+        tools:replace="android:label">
+        <receiver
+            android:name=".quick.QuickActionsWidgetReceiver"
+            android:label="@string/app_name_debug"
+            tools:replace="android:label" />
+    </application>
+</manifest>

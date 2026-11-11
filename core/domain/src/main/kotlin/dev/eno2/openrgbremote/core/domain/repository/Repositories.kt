@@ -132,6 +132,16 @@ interface EffectController {
     fun lastConfig(effect: EffectId): EffectConfig
 }
 
+/**
+ * Starts effects together with whatever keeps them running in the background (on Android the
+ * foreground service). May throw [IllegalStateException] when the platform refuses that from the
+ * background; callers that can run in the background handle it.
+ */
+interface EffectLauncher {
+    fun start(config: EffectConfig)
+    fun stop()
+}
+
 /** The four favorite slots shared by the widget and the Quick Settings tiles. */
 interface QuickActionRepository {
     /** Always [QuickAction.SLOTS] entries; null for an empty slot. */

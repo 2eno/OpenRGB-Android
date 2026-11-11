@@ -33,6 +33,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicInteger
 
+/** Keeps connections open while held, e.g. for a widget action or a running effect. */
+fun interface ConnectionKeepAlive {
+    fun acquireKeepAlive(): Closeable
+}
+
 /**
  * Keeps one [OpenRgbConnection] per saved server that should be connected right now.
  *
@@ -41,11 +46,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * The decision is recomputed by a single collector whenever the server list, the activity or the
  * manual overrides change, so there is no locking between UI calls and lifecycle events.
  */
-/** Keeps connections open while held, e.g. for a widget action or a running effect. */
-fun interface ConnectionKeepAlive {
-    fun acquireKeepAlive(): Closeable
-}
-
 class ConnectionManager(
     private val servers: ServerRepository,
     private val networkMonitor: NetworkMonitor,
@@ -55,6 +55,12 @@ class ConnectionManager(
     private val transportFactory: TransportFactory = SocketTransport.Factory,
     /** Connections stay open this long after the app went to the background (quick app switches). */
     private val backgroundGraceMillis: Long = 30_000,
+    /**
+     * False in the app: Android also starts the process in the background (widget, tile, alarm,
+     * boot), where no lifecycle event would ever report "background". The app's lifecycle
+     * observer reports the foreground instead.
+     */
+    startInForeground: Boolean = true,
 ) : ConnectionRepository, ConnectionKeepAlive {
 
     private data class Overrides(val connect: Set<Long> = emptySet(), val disconnect: Set<Long> = emptySet())
@@ -63,9 +69,9 @@ class ConnectionManager(
 
     private val entries = mutableMapOf<Long, Entry>() // only touched by the reconcile collector
     private val overrides = MutableStateFlow(Overrides())
-    private val foreground = MutableStateFlow(true)
+    private val foreground = MutableStateFlow(startInForeground)
     private val keepAliveCount = MutableStateFlow(0)
-    private val active = MutableStateFlow(true)
+    private val active = MutableStateFlow(startInForeground)
     private var backgroundJob: Job? = null
 
     private val _statuses = MutableStateFlow<Map<Long, ConnectionStatus>>(emptyMap())

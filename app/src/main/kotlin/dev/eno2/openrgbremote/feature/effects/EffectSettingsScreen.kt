@@ -57,6 +57,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -129,6 +133,8 @@ fun EffectSettingsRoute(onBack: () -> Unit, viewModel: EffectSettingsViewModel =
                 }
             },
             onStop = viewModel::stop,
+            onSaveAsProfile = viewModel::saveAsProfile,
+            onSavedShown = viewModel::savedShown,
             onOpenAppSettings = {
                 context.startActivity(
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
@@ -154,6 +160,9 @@ data class EffectSettingsActions(
     val onStart: () -> Unit = {},
     val onStop: () -> Unit = {},
     val onOpenAppSettings: () -> Unit = {},
+    /** Argument: the localized effect name, used as the profile name. */
+    val onSaveAsProfile: (String) -> Unit = {},
+    val onSavedShown: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -163,13 +172,30 @@ fun EffectSettingsScreen(state: EffectSettingsUiState, microphone: MicrophoneSta
     val params = state.config.params
     val canStart = state.devices.any { it.selected }
     var editing by remember { mutableStateOf<Int?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    val savedText = state.savedAs?.let { stringResource(R.string.effect_saved_as_profile, it) }
+    LaunchedEffect(savedText) {
+        if (savedText != null) {
+            actions.onSavedShown()
+            snackbar.showSnackbar(savedText)
+        }
+    }
+    val effectName = stringResource(effectNameRes(effect))
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(effectNameRes(effect))) },
+                title = { Text(effectName) },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back)) }
+                },
+                actions = {
+                    if (state.canSaveAsProfile) {
+                        IconButton(onClick = { actions.onSaveAsProfile(effectName) }) {
+                            Icon(Icons.Outlined.BookmarkAdd, contentDescription = stringResource(R.string.effect_save_as_profile))
+                        }
+                    }
                 },
             )
         },
@@ -298,7 +324,7 @@ fun EffectSettingsScreen(state: EffectSettingsUiState, microphone: MicrophoneSta
 }
 
 @Composable
-private fun LabeledValue(label: String, value: String) {
+internal fun LabeledValue(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
         Text(value, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

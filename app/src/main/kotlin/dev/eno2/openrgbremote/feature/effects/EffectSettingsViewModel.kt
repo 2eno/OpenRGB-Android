@@ -12,13 +12,21 @@ import dev.eno2.openrgbremote.core.domain.usecase.ObserveServerOverviews
 import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.core.effects.EffectParams
 import dev.eno2.openrgbremote.feature.color.TargetDevice
-import dev.eno2.openrgbremote.service.EffectLauncher
+import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import dev.eno2.openrgbremote.core.domain.model.Profile
+import dev.eno2.openrgbremote.core.domain.model.ProfileAnimation
+import dev.eno2.openrgbremote.core.domain.repository.ProfileRepository
+import dev.eno2.openrgbremote.core.domain.usecase.DuplicateProfile
+import dev.eno2.openrgbremote.core.domain.usecase.SaveProfile
+import dev.eno2.openrgbremote.core.domain.usecase.SaveProfileResult
 import javax.inject.Inject
 
 data class EffectSettingsUiState(
@@ -27,7 +35,12 @@ data class EffectSettingsUiState(
     /** Connected devices that can show app effects (per-LED mode). */
     val devices: List<TargetDevice> = emptyList(),
     val loading: Boolean = true,
+    /** Name of the profile just created by "Save as profile", until shown. */
+    val savedAs: String? = null,
 ) {
+    /** Music needs the microphone permission, which profiles applied from widgets cannot ask for. */
+    val canSaveAsProfile: Boolean get() = !config.effect.needsMicrophone
+
     val palette: List<Int> get() = config.params.paletteFor(config.effect)
 }
 
@@ -41,12 +54,15 @@ class EffectSettingsViewModel @Inject constructor(
     observeServerOverviews: ObserveServerOverviews,
     private val effects: EffectController,
     private val launcher: EffectLauncher,
+    private val profiles: ProfileRepository,
+    private val saveProfile: SaveProfile,
 ) : ViewModel() {
 
     private val effect: EffectId = savedStateHandle.get<String>("effect")?.let { name -> EffectId.entries.firstOrNull { it.name == name } } ?: EffectId.RAINBOW_WAVE
     private val draft = MutableStateFlow(effects.lastConfig(effect))
+    private val savedAs = MutableStateFlow<String?>(null)
 
-    val state: StateFlow<EffectSettingsUiState> = combine(draft, effects.state, observeServerOverviews()) { config, effectState, servers ->
+    val state: StateFlow<EffectSettingsUiState> = combine(draft, effects.state, observeServerOverviews(), savedAs) { config, effectState, servers, saved ->
         val capable = servers.flatMap { it.devices }.filter { it.device.ledCount > 0 && it.device.directModeIndex() != null }
         EffectSettingsUiState(
             config = config,
@@ -56,6 +72,7 @@ class EffectSettingsViewModel @Inject constructor(
                 TargetDevice(remote.key, remote.device.label, remote.device.type, targets == null || remote.key in targets, true)
             },
             loading = false,
+            savedAs = saved,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), EffectSettingsUiState(draft.value))
 
@@ -99,6 +116,30 @@ class EffectSettingsViewModel @Inject constructor(
     }
 
     fun start() = launcher.start(draft.value)
+
+    /**
+     * Stores the current settings as a dynamic profile named [displayName] (made unique), so they
+     * survive restarts and can be put on the widget or a tile. Device selection is not part of it:
+     * profiles choose their devices when applied.
+     */
+    fun saveAsProfile(displayName: String) {
+        if (effect.needsMicrophone) return
+        viewModelScope.launch {
+            val params = draft.value.params
+            val taken = profiles.observeProfiles().first().map { it.name }.toSet()
+            val profile = Profile(
+                name = DuplicateProfile.uniqueName(displayName, taken),
+                colors = params.paletteFor(effect),
+                brightness = params.brightness,
+                animation = ProfileAnimation(effect, params.speed, params.reverse),
+            )
+            if (saveProfile(profile) is SaveProfileResult.Saved) savedAs.value = profile.name
+        }
+    }
+
+    fun savedShown() {
+        savedAs.value = null
+    }
 
     fun stop() = launcher.stop()
 }
