@@ -27,6 +27,7 @@ val ConnectionProblem.text: ProblemText
         ConnectionProblem.JUMP_HOST_KEY_UNKNOWN -> ProblemText(R.string.problem_jump_key_unknown_title, R.string.problem_jump_key_unknown_text, R.string.problem_jump_key_unknown_hint)
         ConnectionProblem.JUMP_HOST_KEY_CHANGED -> ProblemText(R.string.problem_jump_key_changed_title, R.string.problem_jump_key_changed_text, R.string.problem_jump_key_changed_hint)
         ConnectionProblem.JUMP_TARGET_UNREACHABLE -> ProblemText(R.string.problem_jump_target_title, R.string.problem_jump_target_text, R.string.problem_jump_target_hint)
+        ConnectionProblem.LOCAL_NETWORK_DENIED -> ProblemText(R.string.problem_lan_title, R.string.problem_lan_text, R.string.problem_lan_hint)
     }
 
 /** "192.168.1.20:6742", or "127.0.0.1:6742 via zeno@pc.local:22" behind a jump host. */

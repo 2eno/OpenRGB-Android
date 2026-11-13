@@ -14,6 +14,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.eno2.openrgbremote.core.data.connection.AndroidNetworkMonitor
+import dev.eno2.openrgbremote.core.data.connection.AndroidLocalNetworkPermission
+import dev.eno2.openrgbremote.core.domain.repository.LocalNetworkPermission
 import dev.eno2.openrgbremote.core.data.connection.ApplicationScope
 import dev.eno2.openrgbremote.core.data.connection.ConnectionKeepAlive
 import dev.eno2.openrgbremote.core.data.connection.ConnectionManager
@@ -84,6 +86,7 @@ abstract class DataBindings {
     @Binds abstract fun discoveryRepository(impl: NetworkScanRepository): DiscoveryRepository
     @Binds abstract fun connectionRepository(impl: ConnectionManager): ConnectionRepository
     @Binds @Singleton abstract fun networkMonitor(impl: AndroidNetworkMonitor): NetworkMonitor
+    @Binds abstract fun localNetworkPermission(impl: AndroidLocalNetworkPermission): LocalNetworkPermission
     @Binds abstract fun favoriteColorRepository(impl: RoomFavoriteColorRepository): FavoriteColorRepository
     @Binds abstract fun lightingRepository(impl: LightingController): LightingRepository
     @Binds abstract fun profileRepository(impl: RoomProfileRepository): ProfileRepository
@@ -175,10 +178,12 @@ object DataModule {
         @ApplicationScope scope: CoroutineScope,
         config: OpenRgbClientConfig,
         credentials: SshCredentials,
+        localNetwork: LocalNetworkPermission,
     ): ConnectionManager = ConnectionManager(
         servers, networkMonitor, scope, config,
         startInForeground = false,
         jumpTransports = SshJumpTransports(credentials),
+        localNetwork = localNetwork,
     )
 
     @Provides

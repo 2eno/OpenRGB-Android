@@ -15,7 +15,6 @@ import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
-import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
@@ -109,17 +108,8 @@ public class SocketTransport private constructor(socket: Socket) : StreamTranspo
     public companion object Factory : TransportFactory {
         override suspend fun connect(host: String, port: Int, connectTimeoutMillis: Int): PacketTransport =
             withContext(Dispatchers.IO) {
-                val socket = Socket()
-                try {
-                    socket.tcpNoDelay = true
-                    socket.keepAlive = true
-                    // Resolving inside the IO context: InetSocketAddress(host, port) performs DNS lookup.
-                    socket.connect(InetSocketAddress(host, port), connectTimeoutMillis)
-                    SocketTransport(socket)
-                } catch (e: Throwable) {
-                    runCatching { socket.close() }
-                    throw e
-                }
+                // Resolves (DNS) and connects inside the IO context, trying every address.
+                SocketTransport(SocketConnector.connect(host, port, connectTimeoutMillis))
             }
     }
 }

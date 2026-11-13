@@ -16,6 +16,9 @@ enum class ConnectionProblem {
     JUMP_HOST_KEY_UNKNOWN,
     JUMP_HOST_KEY_CHANGED,
     JUMP_TARGET_UNREACHABLE,
+
+    /** Android 17+ blocks the local network until the user grants ACCESS_LOCAL_NETWORK. */
+    LOCAL_NETWORK_DENIED,
 }
 
 /** Connection state of one saved server. */

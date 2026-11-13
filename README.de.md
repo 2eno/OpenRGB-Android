@@ -70,6 +70,10 @@ OpenRGB 1.0 bindet den SDK-Server ohne weitere Angabe an **127.0.0.1**, das Hand
   `openrgb --server` reicht, denn die App verbindet sich auf dem Jump-Host mit 127.0.0.1. In der App
   beim Hinzufügen des PCs „Über SSH-Jump-Host verbinden“ einschalten.
 
+* **Android 17:** Die App fragt nach „Geräte in der Nähe“ (lokales Netzwerk). Ohne diese
+  Berechtigung laufen Verbindungen zum PC nur in einen Timeout, auch wenn andere Apps (z. B. Termux)
+  ihn erreichen.
+
 Als Dienst, der mit der Benutzersitzung startet (`~/.config/systemd/user/openrgb.service`):
 
 ```ini

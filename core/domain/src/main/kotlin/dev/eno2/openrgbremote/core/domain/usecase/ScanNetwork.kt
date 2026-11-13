@@ -18,6 +18,8 @@ data class ScanState(
     val total: Int = 0,
     val found: List<ScanResultItem> = emptyList(),
     val noLocalNetwork: Boolean = false,
+    /** The scan waits for the local network permission (Android 17+). */
+    val permissionMissing: Boolean = false,
 ) {
     val progress: Float get() = if (total == 0) 0f else scanned.toFloat() / total
 }

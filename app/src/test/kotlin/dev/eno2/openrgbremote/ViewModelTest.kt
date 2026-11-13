@@ -1,6 +1,7 @@
 package dev.eno2.openrgbremote
 
 import dev.eno2.openrgbremote.core.domain.testing.FakeEffectController
+import dev.eno2.openrgbremote.core.domain.repository.LocalNetworkPermission
 import dev.eno2.openrgbremote.core.domain.testing.FakeSshCredentials
 import dev.eno2.openrgbremote.core.domain.model.EffectConfig
 import dev.eno2.openrgbremote.core.effects.EffectId
@@ -115,7 +116,7 @@ class ViewModelTest {
     fun `refresh retries servers that are not connected and reloads the others`() = runTest {
         servers.save(Server(2, "Media", "192.168.1.40"))
         connections.statuses.value = mapOf(2L to ConnectionStatus.Connected(6, null, null))
-        val vm = DevicesViewModel(ObserveServerOverviews(servers, connections), connections, effects, effects)
+        val vm = DevicesViewModel(ObserveServerOverviews(servers, connections), connections, effects, effects, LocalNetworkPermission.Granted)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.state.collect {} }
         assertEquals(listOf("Desk", "Media"), vm.state.value.servers.map { it.server.name })
         vm.refresh()

@@ -1,5 +1,10 @@
 package dev.eno2.openrgbremote.ui.common
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -104,10 +109,33 @@ fun ProblemCard(
             }
             Text(stringResource(text.explanation), style = MaterialTheme.typography.bodyMedium)
             Text(stringResource(text.hint), style = MaterialTheme.typography.bodyMedium)
-            if (!detail.isNullOrBlank() && problem == ConnectionProblem.UNKNOWN) {
-                Text(stringResource(R.string.problem_details, detail), style = MaterialTheme.typography.bodySmall)
+            if (!detail.isNullOrBlank()) {
+                // Hidden by default except for unexpected errors: the explanation above is what
+                // helps most people, the raw message is what helps when it does not.
+                var expanded by rememberSaveable { mutableStateOf(problem == ConnectionProblem.UNKNOWN) }
+                if (expanded) {
+                    SelectionContainer {
+                        Text(stringResource(R.string.problem_details, detail), style = MaterialTheme.typography.bodySmall)
+                    }
+                } else {
+                    TextButton(
+                        onClick = { expanded = true },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onErrorContainer),
+                        contentPadding = PaddingValues(0.dp),
+                    ) { Text(stringResource(R.string.problem_show_details), style = MaterialTheme.typography.labelLarge) }
+                }
             }
-            if (onRetry != null) {
+            if (problem == ConnectionProblem.LOCAL_NETWORK_DENIED) {
+                val request = rememberLocalNetworkRequest()
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+                    onClick = request,
+                    modifier = Modifier.align(Alignment.End),
+                ) { Text(stringResource(R.string.lan_allow)) }
+            } else if (onRetry != null) {
                 Button(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,

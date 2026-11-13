@@ -56,6 +56,19 @@ interface ConnectionRepository {
     suspend fun testConnection(host: String, port: Int, jumpHost: JumpHost? = null, password: String? = null, serverId: Long = 0): ConnectionTestResult
 }
 
+/**
+ * Android 17's local network permission. Without it, connections into the LAN do not fail but
+ * time out, so the app checks first and asks instead of waiting.
+ */
+interface LocalNetworkPermission {
+    val granted: StateFlow<Boolean>
+
+    /** Always granted: older Android versions, and tests. */
+    object Granted : LocalNetworkPermission {
+        override val granted: StateFlow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(true)
+    }
+}
+
 /** Secrets for SSH jump hosts, kept encrypted on the device. */
 interface SshCredentialRepository {
     /** The app's own public key in authorized_keys format; created on first use. */

@@ -1,5 +1,10 @@
 package dev.eno2.openrgbremote.core.data
 
+import dev.eno2.openrgbremote.core.domain.model.isLocalNetworkAddress
+import java.net.SocketTimeoutException
+import dev.eno2.openrgbremote.sdk.transport.SocketTransport
+import dev.eno2.openrgbremote.sdk.transport.TransportFactory
+import dev.eno2.openrgbremote.core.domain.repository.LocalNetworkPermission
 import dev.eno2.openrgbremote.core.data.connection.ConnectionManager
 import dev.eno2.openrgbremote.core.data.connection.NetworkMonitor
 import dev.eno2.openrgbremote.core.domain.model.ConnectionProblem
@@ -170,6 +175,32 @@ class ConnectionManagerTest {
         manager.awaitStatus(1) { it == ConnectionStatus.Offline }
 
         manager.setAppInForeground(true)
+        manager.awaitStatus(1) { it is ConnectionStatus.Connected }
+    }
+
+    @Test
+    fun `without the local network permission the problem is named and fixed by granting it`() = test {
+        val fake = server()
+        val granted = MutableStateFlow(false)
+        val permission = object : LocalNetworkPermission { override val granted = granted }
+        // Android 17 lets blocked LAN connections time out; this transport does the same until "granted".
+        val transport = TransportFactory { host, _, timeout ->
+            if (!granted.value && isLocalNetworkAddress(host)) throw SocketTimeoutException("connect timed out")
+            SocketTransport.connect("127.0.0.1", fake.port, timeout)
+        }
+        val slow = ReconnectPolicy(initialDelayMillis = 60_000, maxDelayMillis = 60_000, jitter = 0.0)
+        val manager = ConnectionManager(
+            InMemoryServers(listOf(Server(1, "PC", "192.168.1.20", fake.port))), network, scope, config, slow,
+            transportFactory = transport, localNetwork = permission,
+        )
+        val waiting = manager.awaitStatus(1) { it is ConnectionStatus.Reconnecting }
+        assertEquals(ConnectionProblem.LOCAL_NETWORK_DENIED, (waiting as ConnectionStatus.Reconnecting).problem, "not a vague timeout")
+
+        val test = manager.testConnection("192.168.1.20", fake.port)
+        assertEquals(ConnectionProblem.LOCAL_NETWORK_DENIED, assertIs<ConnectionTestResult.Failure>(test).problem, "answered at once instead of after a timeout")
+        assertIs<ConnectionTestResult.Success>(manager.testConnection("127.0.0.1", fake.port), "loopback needs no permission")
+
+        granted.value = true // the user tapped "Allow": no 60 s backoff
         manager.awaitStatus(1) { it is ConnectionStatus.Connected }
     }
 

@@ -31,6 +31,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.Closeable
+import android.util.Log
+import dev.eno2.openrgbremote.core.domain.model.isLocalNetworkAddress
+import dev.eno2.openrgbremote.core.domain.repository.LocalNetworkPermission
 import dev.eno2.openrgbremote.core.data.ssh.JumpTransports
 import dev.eno2.openrgbremote.core.data.ssh.UntrustedHostKeyException
 import dev.eno2.openrgbremote.core.domain.model.JumpHost
@@ -66,6 +69,8 @@ class ConnectionManager(
     startInForeground: Boolean = true,
     /** Transports for servers behind an SSH jump host. */
     private val jumpTransports: JumpTransports = JumpTransports.Unsupported,
+    /** Android 17's local network permission; without it LAN connections only time out. */
+    private val localNetwork: LocalNetworkPermission = LocalNetworkPermission.Granted,
 ) : ConnectionRepository, ConnectionKeepAlive {
 
     private data class Overrides(val connect: Set<Long> = emptySet(), val disconnect: Set<Long> = emptySet())
@@ -97,6 +102,10 @@ class ConnectionManager(
         scope.launch {
             // Network came back: skip the backoff instead of waiting up to 30 s.
             networkMonitor.isOnline.drop(1).filter { it }.collect { retryAllNow() }
+        }
+        scope.launch {
+            // The user just allowed local network access: connect now.
+            localNetwork.granted.drop(1).filter { it }.collect { retryAllNow() }
         }
     }
 
@@ -139,6 +148,10 @@ class ConnectionManager(
     }
 
     override suspend fun testConnection(host: String, port: Int, jumpHost: JumpHost?, password: String?, serverId: Long): ConnectionTestResult {
+        if (!localNetwork.granted.value && isLocalNetworkAddress(jumpHost?.host ?: host)) {
+            // It would only run into a timeout.
+            return ConnectionTestResult.Failure(ConnectionProblem.LOCAL_NETWORK_DENIED, "ACCESS_LOCAL_NETWORK not granted")
+        }
         val transports = jumpHost?.let { jumpTransports.create(it, serverId, password) } ?: transportFactory
         val client = OpenRgbClient(host, port, clientConfig.copy(heartbeatIntervalMillis = 0), transports)
         // The SSH login and host key exchange come on top of the OpenRGB handshake.
@@ -155,6 +168,7 @@ class ConnectionManager(
                 ConnectionTestResult.UntrustedHostKey(untrusted.key, untrusted.changed)
             } else {
                 ConnectionTestResult.Failure(e.error.reason.toProblem(networkMonitor.isOnline.value), e.error.message)
+                .also { Log.i(TAG, "Test of $host:$port${jumpHost?.let { " via ${it.address}" }.orEmpty()} failed: ${e.error.reason} ${e.error.message}", e.error.cause) }
             }
         } finally {
             client.close()
@@ -241,15 +255,33 @@ class ConnectionManager(
     private fun start(server: Server): Entry {
         val transports = server.jumpHost?.let { jumpTransports.create(it, server.id, null) } ?: transportFactory
         val connection = OpenRgbConnection(server.host, server.port, scope, clientConfig, reconnectPolicy, transports)
+        // The address the phone itself connects to: the jump host, if there is one.
+        val contactsLocalNetwork = isLocalNetworkAddress(server.jumpHost?.host ?: server.host)
         val statusJob = scope.launch {
-            combine(connection.state, networkMonitor.isOnline) { state, online -> state.toStatus(online) }
-                .collect { status -> _statuses.update { it + (server.id to status) } }
+            combine(connection.state, networkMonitor.isOnline, localNetwork.granted) { state, online, granted ->
+                state.toStatus(online, lanDenied = !granted && contactsLocalNetwork)
+            }
+                .distinctUntilChanged()
+                .collect { status ->
+                    if (status is ConnectionStatus.Reconnecting || status is ConnectionStatus.Failed) logFailure(server, connection.state.value)
+                    _statuses.update { it + (server.id to status) }
+                }
         }
         val devicesJob = scope.launch {
             connection.devices.collect { list -> _devices.update { it + (server.id to list) } }
         }
         connection.start()
         return Entry(server, connection, listOf(statusJob, devicesJob))
+    }
+
+    private fun logFailure(server: Server, state: ConnectionState) {
+        val error = when (state) {
+            is ConnectionState.Reconnecting -> state.error
+            is ConnectionState.Failed -> state.error
+            else -> return
+        }
+        // Only the technical reason; the user sees a translated explanation.
+        Log.i(TAG, "${server.address}${server.jumpHost?.let { " via ${it.address}" }.orEmpty()}: ${error.reason} ${error.message}", error.cause)
     }
 
     private fun stop(entry: Entry) {
@@ -260,22 +292,38 @@ class ConnectionManager(
     }
 
     companion object {
+        private const val TAG = "OpenRgbConnection"
         const val TEST_TIMEOUT_MILLIS = 8_000L
         const val JUMP_TEST_EXTRA_MILLIS = 7_000L
 
-        fun ConnectionState.toStatus(online: Boolean): ConnectionStatus = when (this) {
+        fun ConnectionState.toStatus(online: Boolean, lanDenied: Boolean = false): ConnectionStatus = when (this) {
             ConnectionState.Idle -> ConnectionStatus.Offline
             is ConnectionState.Connecting -> ConnectionStatus.Connecting(attempt)
             is ConnectionState.Connected ->
                 ConnectionStatus.Connected(serverInfo.protocolVersion, serverInfo.serverName, serverInfo.serverHostname)
             is ConnectionState.Reconnecting ->
-                ConnectionStatus.Reconnecting(attempt, delayMillis, error.reason.toProblem(online), error.message)
-            is ConnectionState.Failed -> ConnectionStatus.Failed(error.reason.toProblem(online), error.message)
+                ConnectionStatus.Reconnecting(attempt, delayMillis, error.reason.toProblem(online, lanDenied), error.message)
+            is ConnectionState.Failed -> ConnectionStatus.Failed(error.reason.toProblem(online, lanDenied), error.message)
         }
 
-        /** Without a network every failure has the same cause, which is also the easiest to fix. */
-        fun ConnectionErrorReason.toProblem(online: Boolean): ConnectionProblem = if (!online) {
+        /** Failures that a blocked local network produces: it lets connections time out. */
+        private val LAN_BLOCK_SYMPTOMS = setOf(
+            ConnectionErrorReason.TIMEOUT,
+            ConnectionErrorReason.UNREACHABLE,
+            ConnectionErrorReason.CONNECTION_REFUSED,
+            ConnectionErrorReason.CONNECTION_LOST,
+            ConnectionErrorReason.UNKNOWN,
+            ConnectionErrorReason.JUMP_HOST_UNREACHABLE,
+        )
+
+        /**
+         * Without a network every failure has the same cause, which is also the easiest to fix.
+         * The same goes for a missing local network permission ([lanDenied]).
+         */
+        fun ConnectionErrorReason.toProblem(online: Boolean, lanDenied: Boolean = false): ConnectionProblem = if (!online) {
             ConnectionProblem.NO_NETWORK
+        } else if (lanDenied && this in LAN_BLOCK_SYMPTOMS) {
+            ConnectionProblem.LOCAL_NETWORK_DENIED
         } else {
             when (this) {
                 ConnectionErrorReason.UNKNOWN_HOST -> ConnectionProblem.UNKNOWN_HOST

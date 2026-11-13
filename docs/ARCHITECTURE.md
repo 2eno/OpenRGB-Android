@@ -260,6 +260,19 @@ in the settings to only use the server in a trusted LAN, over a VPN (e.g. WireGu
 through an SSH jump host, and never to expose port 6742 to the internet. Cleartext traffic only
 concerns raw TCP, not HTTP; a network security config is therefore not needed.
 
+### Local network permission (Android 17)
+
+Apps targeting Android 17 (API 37) need the runtime permission `ACCESS_LOCAL_NETWORK` (group
+“Nearby devices”) for every connection into the LAN; without it TCP connections are silently
+dropped and only time out. Older apps get it implicitly, which is why e.g. Termux reaches the same
+PC. The app declares it and asks in context: when a scan starts (the scan waits instead of
+reporting “nothing found”), from a card at the top of the device list, and from the error card.
+`AndroidLocalNetworkPermission` is re-read when the activity resumes; when it becomes granted, all
+connections retry at once. While it is missing, the connection test answers immediately and
+failures to private, link-local or `.local` addresses are reported as `LOCAL_NETWORK_DENIED`
+(loopback and public addresses do not need it). A user who denied it for good is taken to the
+app's settings.
+
 ### SSH jump host
 
 Like `ssh -J` (or virt-manager's SSH connections), the app can log in to an SSH server and open a

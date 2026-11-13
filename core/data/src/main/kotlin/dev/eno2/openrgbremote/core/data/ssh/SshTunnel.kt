@@ -8,6 +8,11 @@ import com.jcraft.jsch.JSchChangedHostKeyException
 import com.jcraft.jsch.JSchException
 import com.jcraft.jsch.JSchUnknownHostKeyException
 import com.jcraft.jsch.Session
+import com.jcraft.jsch.SocketFactory
+import dev.eno2.openrgbremote.sdk.transport.SocketConnector
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.Socket
 import com.jcraft.jsch.UIKeyboardInteractive
 import com.jcraft.jsch.UserInfo
 import dev.eno2.openrgbremote.core.domain.model.JumpHost
@@ -94,6 +99,8 @@ class SshTunnelTransportFactory(
                 setPassword(login.password.toByteArray(Charsets.UTF_8))
                 setUserInfo(PasswordAnswers(login.password))
             }
+            // Every address of the name, like OpenSSH (JSch alone only tries the first one).
+            setSocketFactory(AllAddressesSocketFactory(connectTimeoutMillis))
             // Keeps NAT and firewalls from dropping an idle tunnel, and notices a dead one.
             setServerAliveInterval(keepAliveMillis)
             setServerAliveCountMax(3)
@@ -177,6 +184,12 @@ class SshTunnelTransportFactory(
         override fun getKnownHostsRepositoryID(): String = "openrgb-remote"
         override fun getHostKey(): Array<HostKey> = emptyArray()
         override fun getHostKey(host: String?, type: String?): Array<HostKey> = emptyArray()
+    }
+
+    private class AllAddressesSocketFactory(private val timeoutMillis: Int) : SocketFactory {
+        override fun createSocket(host: String, port: Int): Socket = SocketConnector.connect(host, port, timeoutMillis)
+        override fun getInputStream(socket: Socket): InputStream = socket.getInputStream()
+        override fun getOutputStream(socket: Socket): OutputStream = socket.getOutputStream()
     }
 
     /** Answers "Password:" prompts of servers that use keyboard-interactive instead of password auth. */

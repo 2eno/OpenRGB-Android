@@ -264,6 +264,19 @@ und in den Einstellungen den Hinweis, den Server nur im vertrauenswürdigen LAN,
 Internet freizugeben. Cleartext-Traffic betrifft nur rohes TCP, kein HTTP; eine
 Network-Security-Config ist daher nicht nötig.
 
+### Berechtigung für das lokale Netzwerk (Android 17)
+
+Apps, die auf Android 17 (API 37) zielen, brauchen für jede Verbindung ins LAN die
+Laufzeitberechtigung `ACCESS_LOCAL_NETWORK` (Gruppe „Geräte in der Nähe“); ohne sie werden
+TCP-Verbindungen stillschweigend verworfen und laufen nur in einen Timeout. Ältere Apps erhalten sie
+implizit, deshalb erreicht z. B. Termux denselben PC. Die App deklariert sie und fragt im Kontext:
+beim Start eines Scans (der Scan wartet, statt „nichts gefunden“ zu melden), über eine Karte oben in
+der Geräteliste und aus der Fehlerkarte. `AndroidLocalNetworkPermission` wird beim Fortsetzen der
+Activity neu gelesen; sobald sie erteilt ist, verbinden sich alle Server sofort neu. Solange sie
+fehlt, antwortet der Verbindungstest sofort, und Fehler zu privaten, link-lokalen oder
+`.local`-Adressen werden als `LOCAL_NETWORK_DENIED` gemeldet (Loopback und öffentliche Adressen
+brauchen sie nicht). Wer dauerhaft abgelehnt hat, wird zu den App-Einstellungen geführt.
+
 ### SSH-Jump-Host
 
 Wie `ssh -J` (oder die SSH-Verbindungen von virt-manager) meldet sich die App an einem SSH-Server

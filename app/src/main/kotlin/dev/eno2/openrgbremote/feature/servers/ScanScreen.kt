@@ -1,5 +1,11 @@
 package dev.eno2.openrgbremote.feature.servers
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.eno2.openrgbremote.ui.common.rememberLocalNetworkRequest
+import dev.eno2.openrgbremote.ui.common.LocalNetworkPermissionCard
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -106,6 +112,22 @@ fun ScanContent(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth().animateContentSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (state.permissionMissing) {
+            // Asked once on its own; the card stays for a later "yes" after a "no".
+            val request = rememberLocalNetworkRequest()
+            var asked by rememberSaveable { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                if (!asked) {
+                    asked = true
+                    request()
+                }
+            }
+            LocalNetworkPermissionCard()
+            OutlinedButton(onClick = onAddManually, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                Text(stringResource(R.string.action_enter_manually))
+            }
+            return@Column
+        }
         if (state.noLocalNetwork) {
             EmptyState(Icons.Outlined.WifiOff, stringResource(R.string.scan_no_network_title), stringResource(R.string.scan_no_network_text)) {
                 OutlinedButton(onClick = onAddManually) { Text(stringResource(R.string.action_enter_manually)) }

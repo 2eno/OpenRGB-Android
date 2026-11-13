@@ -17,6 +17,7 @@ import dev.eno2.openrgbremote.core.domain.model.QuickAction
 import dev.eno2.openrgbremote.quick.QuickActionRunner
 import dev.eno2.openrgbremote.quick.showQuickActionFeedback
 import dev.eno2.openrgbremote.ui.AppRoot
+import dev.eno2.openrgbremote.ui.common.refreshLocalNetworkPermission
 import dev.eno2.openrgbremote.ui.navigation.OpenRequest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -37,6 +38,12 @@ class MainActivity : ComponentActivity() {
                 AppRoot(openRequest = openRequest, onOpenRequestHandled = { openRequest = null })
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The permission can change in the system dialog or the app's settings while paused.
+        refreshLocalNetworkPermission(this)
     }
 
     override fun onNewIntent(intent: Intent) {

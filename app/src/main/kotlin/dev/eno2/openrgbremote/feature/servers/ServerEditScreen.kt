@@ -152,7 +152,15 @@ fun ServerForm(state: ServerEditUiState, actions: ServerFormActions, modifier: M
             onValueChange = actions.onHost,
             label = { Text(stringResource(if (viaJump) R.string.edit_host_via_jump else R.string.edit_host)) },
             supportingText = {
-                Text(state.hostError?.let { stringResource(it.messageRes()) } ?: stringResource(if (viaJump) R.string.edit_host_via_jump_supporting else R.string.edit_host_supporting))
+                // Same address as the jump host: OpenRGB runs there, and 127.0.0.1 would let it stay
+                // off the network (plain "openrgb --server").
+                val sameAsJump = viaJump && state.host.trim().isNotEmpty() && state.host.trim().equals(state.jumpHost.trim(), ignoreCase = true)
+                val hint = when {
+                    sameAsJump -> R.string.edit_host_same_as_jump
+                    viaJump -> R.string.edit_host_via_jump_supporting
+                    else -> R.string.edit_host_supporting
+                }
+                Text(state.hostError?.let { stringResource(it.messageRes()) } ?: stringResource(hint))
             },
             isError = state.hostError != null,
             singleLine = true,

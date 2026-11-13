@@ -1,5 +1,6 @@
 package dev.eno2.openrgbremote.feature.devices
 
+import dev.eno2.openrgbremote.core.domain.model.ConnectionProblem
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,6 +59,7 @@ import dev.eno2.openrgbremote.ui.common.ConnectionStatusPill
 import dev.eno2.openrgbremote.ui.common.LoadingRow
 import dev.eno2.openrgbremote.core.effects.EffectId
 import dev.eno2.openrgbremote.feature.effects.RunningCard
+import dev.eno2.openrgbremote.ui.common.LocalNetworkPermissionCard
 import dev.eno2.openrgbremote.ui.common.ProblemCard
 
 @Composable
@@ -145,21 +147,26 @@ fun DevicesScreen(state: DevicesUiState, actions: DevicesActions) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    if (state.localNetworkDenied) {
+                        item(key = "lan", span = { GridItemSpan(maxLineSpan) }, contentType = "lan") {
+                            LocalNetworkPermissionCard(Modifier.animateItem())
+                        }
+                    }
                     state.runningEffect?.let { running ->
                         item(key = "effect", span = { GridItemSpan(maxLineSpan) }, contentType = "effect") {
                             RunningCard(running, actions.onOpenEffect, actions.onStopEffect, Modifier.animateItem())
                         }
                     }
-                    state.servers.forEach { overview -> serverSection(overview, actions) }
+                    state.servers.forEach { overview -> serverSection(overview, actions, state.localNetworkDenied) }
                 }
             }
         }
     }
 }
 
-private fun androidx.compose.foundation.lazy.grid.LazyGridScope.serverSection(overview: ServerOverview, actions: DevicesActions) {
+private fun androidx.compose.foundation.lazy.grid.LazyGridScope.serverSection(overview: ServerOverview, actions: DevicesActions, lanCardShown: Boolean) {
     item(key = "server-${overview.server.id}", span = { GridItemSpan(maxLineSpan) }, contentType = "server") {
-        ServerHeader(overview, actions)
+        ServerHeader(overview, actions, lanCardShown)
     }
     items(
         items = overview.devices,
@@ -171,7 +178,7 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.serverSection(ov
 }
 
 @Composable
-private fun ServerHeader(overview: ServerOverview, actions: DevicesActions) {
+private fun ServerHeader(overview: ServerOverview, actions: DevicesActions, lanCardShown: Boolean) {
     val status = overview.status
     Column(Modifier.fillMaxWidth().animateContentSize().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -196,6 +203,8 @@ private fun ServerHeader(overview: ServerOverview, actions: DevicesActions) {
         }
         val problem = status.problem
         when {
+            // The card at the top already explains it and asks; one "Allow" is enough.
+            problem == ConnectionProblem.LOCAL_NETWORK_DENIED && lanCardShown -> Unit
             problem != null -> ProblemCard(
                 problem = problem,
                 detail = (status as? ConnectionStatus.Reconnecting)?.detail ?: (status as? ConnectionStatus.Failed)?.detail,

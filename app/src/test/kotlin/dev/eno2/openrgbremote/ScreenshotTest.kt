@@ -260,6 +260,31 @@ class ScreenshotTest {
     private val jumpHostKey = SshHostKey("ssh-ed25519", "AAAAC3NzaC1lZDI1NTE5AAAAIHzPJK0H0Czs/WWP9M2Jvozk91qwAP9JiaUmIiwTIFll")
 
     @Test
+    fun lan_permission_devices_de() = capture("lan_permission_devices_de", "+de") {
+        val denied = listOf(
+            ServerOverview(
+                livingRoom.copy(name = "DebianHost", host = "10.0.0.204"),
+                ConnectionStatus.Reconnecting(2, 4_000, ConnectionProblem.LOCAL_NETWORK_DENIED, "timeout: socket is not established"),
+                emptyList(),
+            ),
+        )
+        DevicesScreen(DevicesUiState(loading = false, servers = denied, localNetworkDenied = true), DevicesActions())
+    }
+
+    @Test
+    fun server_edit_lan_denied_en_dark() = capture("server_edit_lan_denied_en_dark", "en-w411dp-h1350dp-night-xxhdpi", dark = true) {
+        ServerEditScreen(
+            ServerEditUiState(
+                name = "DebianHost", host = "10.0.0.204", useJumpHost = true, jumpHost = "10.0.0.204", jumpUser = "zeno",
+                jumpAuth = SshAuth.PASSWORD, hasSavedPassword = true,
+                test = TestState.Failure(ConnectionProblem.LOCAL_NETWORK_DENIED, "ACCESS_LOCAL_NETWORK not granted"),
+            ),
+            ServerFormActions(),
+            onBack = {},
+        )
+    }
+
+    @Test
     fun hostkey_new_de() = capture("hostkey_new_de", "+de") {
         ServerEditScreen(
             ServerEditUiState(host = "127.0.0.1", useJumpHost = true, jumpHost = "gaming-pc.fritz.box", jumpUser = "zeno", test = TestState.UntrustedHostKey(jumpHostKey, changed = false)),

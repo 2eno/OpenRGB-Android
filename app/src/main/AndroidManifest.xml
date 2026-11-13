@@ -4,6 +4,8 @@
 
     <!-- Raw TCP to the OpenRGB SDK server in the local network. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 17+: required for any connection into the LAN (OpenRGB, SSH jump host, scan). -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- Reconnect when Wi-Fi comes back and find the local subnet for the network scan. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Keep streaming an effect while the app is in the background. connectedDevice requires one

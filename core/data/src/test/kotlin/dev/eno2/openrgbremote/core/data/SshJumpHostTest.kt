@@ -233,6 +233,7 @@ class SshJumpHostTest {
             val success = manager().testConnection("127.0.0.1", openRgb.port, jump(key = first.key, port = modern.port), password = "secret")
             assertIs<ConnectionTestResult.Success>(success)
             val kex = kexAlgorithms.single()
+            println("NEGOTIATED KEX: $kex")
             assertTrue("25519" in kex, "negotiated $kex: Curve25519 key exchange via BouncyCastle")
         } finally {
             modern.stop(true)

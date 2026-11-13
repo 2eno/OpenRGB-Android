@@ -243,6 +243,14 @@
     <string name="problem_unknown_text">Ein unerwarteter Fehler ist aufgetreten.</string>
     <string name="problem_unknown_hint">Versuche es erneut. Falls es weiter fehlschlägt, starte OpenRGB auf dem PC neu.</string>
     <string name="problem_details">Details: %1$s</string>
+    <string name="problem_show_details">Technische Details</string>
+    <string name="problem_lan_title">Kein Zugriff auf das lokale Netzwerk</string>
+    <string name="problem_lan_text">Seit Android 17 braucht die App deine Erlaubnis, um Geräte im lokalen Netzwerk zu erreichen. Ohne sie laufen Verbindungen ins Leere.</string>
+    <string name="problem_lan_hint">Tippe auf „Erlauben“. Android fragt nach „Geräte in der Nähe“, das umfasst das lokale Netzwerk.</string>
+    <string name="lan_card_title">Zugriff auf das lokale Netzwerk erlauben</string>
+    <string name="lan_card_text">Die App spricht direkt mit OpenRGB auf deinen PCs. Android 17 verlangt dafür die Berechtigung „Geräte in der Nähe“. Die App verbindet sich nur mit den PCs, die du hinzufügst, und durchsucht das Netz nur, wenn du einen Scan startest.</string>
+    <string name="lan_allow">Erlauben</string>
+    <string name="quick_result_lan_denied">OpenRGB: Öffne die App einmal und erlaube den Zugriff auf das lokale Netzwerk.</string>
     <string name="problem_jump_unreachable_title">SSH-Jump-Host nicht erreichbar</string>
     <string name="problem_jump_unreachable_text">Unter der Adresse des Jump-Hosts antwortet kein SSH-Server.</string>
     <string name="problem_jump_unreachable_hint">Prüfe Adresse und SSH-Port des Jump-Hosts und ob er eingeschaltet und aus diesem Netz erreichbar ist.</string>
@@ -316,6 +324,7 @@
     <string name="edit_test_success_text">%1$s · Protokoll %2$d · %3$s</string>
     <string name="edit_auto_connect_supporting">Verbinden, sobald die App geöffnet ist</string>
     <string name="edit_host_via_jump">OpenRGB-Adresse, vom Jump-Host aus</string>
+    <string name="edit_host_same_as_jump" tools:ignore="TypographyDashes">Läuft OpenRGB auf dem Jump-Host selbst? Dann 127.0.0.1 eintragen: OpenRGB muss dann nicht im Netz lauschen (einfach „openrgb --server“).</string>
     <string name="edit_host_via_jump_supporting">127.0.0.1, wenn OpenRGB auf dem Jump-Host selbst läuft</string>
     <string name="edit_jump_switch">Über SSH-Jump-Host verbinden</string>
     <string name="edit_jump_switch_supporting">Verschlüsselt und mit Anmeldung, auch von unterwegs. OpenRGB muss dann nur auf dem Jump-Host selbst lauschen.</string>

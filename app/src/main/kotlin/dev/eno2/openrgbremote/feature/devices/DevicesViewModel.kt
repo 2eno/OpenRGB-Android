@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.eno2.openrgbremote.core.domain.model.ConnectionStatus
 import dev.eno2.openrgbremote.core.domain.model.EffectState
+import dev.eno2.openrgbremote.core.domain.model.isLocalNetworkAddress
+import dev.eno2.openrgbremote.core.domain.repository.LocalNetworkPermission
 import dev.eno2.openrgbremote.core.domain.repository.EffectController
 import dev.eno2.openrgbremote.core.domain.repository.EffectLauncher
 import dev.eno2.openrgbremote.core.domain.model.ServerOverview
@@ -24,6 +26,8 @@ data class DevicesUiState(
     val refreshing: Boolean = false,
     /** Shown above the devices: it explains why their colors keep changing. */
     val runningEffect: EffectState.Running? = null,
+    /** Android 17+ blocks every connection into the LAN until this is granted. */
+    val localNetworkDenied: Boolean = false,
 )
 
 @HiltViewModel
@@ -32,12 +36,19 @@ class DevicesViewModel @Inject constructor(
     private val connections: ConnectionRepository,
     effects: EffectController,
     private val launcher: EffectLauncher,
+    localNetwork: LocalNetworkPermission,
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
 
-    val state: StateFlow<DevicesUiState> = combine(observeServerOverviews(), refreshing, effects.state) { servers, isRefreshing, effect ->
-        DevicesUiState(loading = false, servers = servers, refreshing = isRefreshing, runningEffect = effect as? EffectState.Running)
+    val state: StateFlow<DevicesUiState> = combine(observeServerOverviews(), refreshing, effects.state, localNetwork.granted) { servers, isRefreshing, effect, lanGranted ->
+        DevicesUiState(
+            loading = false,
+            servers = servers,
+            refreshing = isRefreshing,
+            runningEffect = effect as? EffectState.Running,
+            localNetworkDenied = !lanGranted && servers.any { isLocalNetworkAddress(it.server.jumpHost?.host ?: it.server.host) },
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), DevicesUiState())
 
     fun refresh() {

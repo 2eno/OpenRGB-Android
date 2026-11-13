@@ -69,6 +69,9 @@ OpenRGB 1.0 binds its SDK server to **127.0.0.1** unless told otherwise, so a ph
   is enough and safer, because the app connects to 127.0.0.1 on the jump host. In the app enable
   “Connect through an SSH jump host” when adding the PC.
 
+* **Android 17:** the app asks for “Nearby devices” (local network). Without it, connections to
+  the PC only time out, even though other apps (e.g. Termux) reach it.
+
 As a service that starts with the user session (`~/.config/systemd/user/openrgb.service`):
 
 ```ini
